@@ -7,7 +7,7 @@ todos:
     status: pending
   - id: implement-beat-core
     content: 实现基于 AudioSettings.dspTime 的 BeatClock 与 RhythmJudge。
-    status: pending
+    status: completed
   - id: implement-spell-flow
     content: 实现输入缓存、魔法定义、魔法匹配和伤害结算。
     status: pending
@@ -85,6 +85,7 @@ flowchart TD
   - `BeatClock`：维护 BPM、当前拍号、当前四顶点索引、输入偏差计算。
   - `RhythmJudge`：根据偏差输出 `Perfect / Good / Miss`。
   - `PlayerRhythmInputController`：接收咏唱/施法输入，不在 `Update` 中反复 `GetComponent`。
+  - 第 1 轮实测：默认 BPM 120、Perfect ±50ms、Good ±120ms、`dspOffsetMs=0`。键盘 `J` 咏唱、`K` 施法（手柄 South/East）。无 Clip 自动起跑；有 Clip 时 `StartClock` 会 `AudioSource.Play`。验收：offset 0=Perfect、80=Good、200=Miss；把 Good 窗口收到 70ms 后 80ms 变为 Miss。Play 时在 Game 窗口试按 J/K 看 Console `[Beat]` 日志。
 - 魔法系统
   - `SpellDefinition`：用 ScriptableObject 配置魔法名、等级、基础伤害、输入步骤和间隔。
   - `SpellInputBuffer`：记录当前咏唱到施法期间的输入序列。
