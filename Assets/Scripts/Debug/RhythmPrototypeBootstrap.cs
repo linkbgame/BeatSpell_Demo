@@ -1,21 +1,27 @@
+using System;
 using BeatSpell.Rhythm;
 using BeatSpell.RhythmInput;
+using BeatSpell.Spell;
 using UnityEngine;
 
 namespace BeatSpell.Prototype
 {
     /// <summary>
-    /// 第 1 轮场景入口：串联时钟、判定与 Console 日志。
-    /// SimulateInputAtOffsetMs 供 UnityMCP 验收，不依赖真实按键。
+    /// 场景入口：节拍判定 + 咏唱缓冲 + 火焰魔法匹配。
     /// </summary>
     public class RhythmPrototypeBootstrap : MonoBehaviour
     {
         [SerializeField] private BeatClock beatClock;
         [SerializeField] private PlayerRhythmInputController inputController;
         [SerializeField] private RhythmJudge rhythmJudge = new RhythmJudge();
+        [SerializeField] private SpellInputBuffer spellInputBuffer = new SpellInputBuffer();
+        [SerializeField] private SpellCaster spellCaster;
+        [SerializeField] private SpellDefinition[] spellCatalog;
 
         public BeatClock Clock => beatClock;
         public RhythmJudge Judge => rhythmJudge;
+        public SpellInputBuffer InputBuffer => spellInputBuffer;
+        public SpellCaster Caster => spellCaster;
         public int BeatIndex => beatClock != null ? beatClock.BeatIndex : 0;
         public int VertexIndex => beatClock != null ? beatClock.VertexIndex : 0;
         public bool IsClockRunning => beatClock != null && beatClock.IsRunning;
@@ -25,15 +31,6 @@ namespace BeatSpell.Prototype
             CacheRefs();
         }
 
-        public void Bind(BeatClock clock, PlayerRhythmInputController controller)
-        {
-            beatClock = clock;
-            inputController = controller;
-        }
-
-        /// <summary>
-        /// 真实按键路径：用当前 dspTime 判定。
-        /// </summary>
         public void ProcessLiveInput(BeatInputType type)
         {
             if (beatClock == null || !beatClock.IsRunning)
@@ -42,19 +39,13 @@ namespace BeatSpell.Prototype
                 return;
             }
 
-            BeatTimingInfo timing = beatClock.GetTimingAt(AudioSettings.dspTime);
-            Emit(type, timing);
+            ProcessInput(type, beatClock.GetTimingAt(AudioSettings.dspTime));
         }
 
-        /// <summary>
-        /// MCP / Editor 测试入口：注入与最近节拍的毫秒偏差，验证判定窗口。
-        /// offset 0 → Perfect；约 80 → Good；约 200 → Miss（默认窗口）。
-        /// </summary>
         public BeatTimingGrade SimulateInputAtOffsetMs(BeatInputType type, float offsetMs)
         {
             if (beatClock == null)
             {
-                Debug.LogWarning("[Beat] 缺少 BeatClock。");
                 return BeatTimingGrade.Miss;
             }
 
@@ -63,8 +54,43 @@ namespace BeatSpell.Prototype
                 beatClock.StartClock();
             }
 
-            BeatTimingInfo timing = beatClock.GetSimulatedTiming(offsetMs);
-            return Emit(type, timing);
+            return ProcessInput(type, beatClock.GetSimulatedTiming(offsetMs));
+        }
+
+        public BeatTimingGrade SimulateStep(BeatInputType type, int beatIndex, float offsetMs)
+        {
+            if (beatClock == null)
+            {
+                return BeatTimingGrade.Miss;
+            }
+
+            if (!beatClock.IsRunning)
+            {
+                beatClock.StartClock();
+            }
+
+            return ProcessInput(type, beatClock.GetTimingForBeatIndex(beatIndex, offsetMs));
+        }
+
+        [Serializable]
+        public struct SimulatedSequenceStep
+        {
+            public BeatInputType type;
+            public int beatIndex;
+            public float offsetMs;
+        }
+
+        public void SimulateSequence(SimulatedSequenceStep[] steps)
+        {
+            if (steps == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < steps.Length; i++)
+            {
+                SimulateStep(steps[i].type, steps[i].beatIndex, steps[i].offsetMs);
+            }
         }
 
         public void SetGoodWindowMs(float goodWindowMs)
@@ -77,7 +103,7 @@ namespace BeatSpell.Prototype
             rhythmJudge.PerfectWindowMs = perfectWindowMs;
         }
 
-        private BeatTimingGrade Emit(BeatInputType type, BeatTimingInfo timing)
+        private BeatTimingGrade ProcessInput(BeatInputType type, BeatTimingInfo timing)
         {
             BeatTimingGrade grade = rhythmJudge.Evaluate(timing.DeltaMs);
             string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
@@ -87,6 +113,11 @@ namespace BeatSpell.Prototype
             if (inputController != null)
             {
                 inputController.RaiseRhythmInput(type, grade, timing.DeltaMs, timing.BeatIndex);
+            }
+
+            if (spellCaster != null)
+            {
+                spellInputBuffer.TryAppend(type, grade, timing, spellCatalog, spellCaster);
             }
 
             return grade;
@@ -102,6 +133,11 @@ namespace BeatSpell.Prototype
             if (inputController == null)
             {
                 inputController = GetComponent<PlayerRhythmInputController>();
+            }
+
+            if (spellCaster == null)
+            {
+                spellCaster = GetComponent<SpellCaster>();
             }
         }
     }

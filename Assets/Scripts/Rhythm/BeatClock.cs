@@ -111,6 +111,23 @@ namespace BeatSpell.Rhythm
             return new BeatTimingInfo(live.BeatIndex, live.VertexIndex, offsetMs, live.DspTime);
         }
 
+        /// <summary>
+        /// MCP 测试：指定 beatIndex 与相对该拍理论点的偏差（毫秒）。
+        /// </summary>
+        public BeatTimingInfo GetTimingForBeatIndex(int beatIndex, float offsetMs)
+        {
+            beatIndex = Mathf.Max(0, beatIndex);
+            int vertexIndex = BeatTimingInfo.PositiveMod(beatIndex, 4);
+            if (!isRunning)
+            {
+                return new BeatTimingInfo(beatIndex, vertexIndex, offsetMs, AudioSettings.dspTime);
+            }
+
+            double beatTime = songStartDspTime + beatIndex * (double)SecondsPerBeat;
+            double dspNow = beatTime + offsetMs * 0.001;
+            return new BeatTimingInfo(beatIndex, vertexIndex, offsetMs, dspNow);
+        }
+
         private void TryStartClock(bool force = false)
         {
             if (isRunning && !force)

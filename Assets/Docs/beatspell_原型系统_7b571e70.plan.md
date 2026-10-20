@@ -10,7 +10,7 @@ todos:
     status: completed
   - id: implement-spell-flow
     content: 实现输入缓存、魔法定义、魔法匹配和伤害结算。
-    status: pending
+    status: completed
   - id: implement-combat-loop
     content: 接入玩家/敌人血量、基础动画触发和胜负流程。
     status: pending
@@ -44,8 +44,8 @@ isProject: false
   - `Good`：约 ±120ms
   - `Miss`：超过 Good 窗口
 - 魔法匹配示例：
-  - 火球术：`咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 施法`
-  - 治疗术：`咏唱 -> 2拍 -> 咏唱 -> 1拍 -> 施法`
+  - 火焰魔法（Demo）：`咏唱(J) -> 1拍 -> 施法(K)`；图标顶黄=咏唱、右黑=施法（可视化，判定看类型+间隔）
+  - 治疗术：`咏唱(J)  -> 半拍 -> 咏唱(J)  -> 半拍 -> 施法(K)`
   - 雷击术：`咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 施法`
 - 伤害结算建议：全部 Perfect 为 100%，含 Good 无 Miss 时降低到 70% 到 90%，任意 Miss 为 0。
 
@@ -91,6 +91,7 @@ flowchart TD
   - `SpellInputBuffer`：记录当前咏唱到施法期间的输入序列。
   - `SpellMatcher`：在施法时匹配魔法定义。
   - `SpellCaster`：执行伤害、动画和反馈。
+  - 第 2 轮实测：`Fireball_Lv1` 为 `Chant → 1拍 → Cast`；MCP 用例 1–5 通过（Matched 1.0 / Matched 0.8 / ChantBroken / MatchFailed / SequenceInvalid）。
 - 玩家系统
   - `PlayerCombatController`：整合输入、咏唱状态、施法结果。
   - `PlayerHealth`：管理玩家生命值。
@@ -116,10 +117,23 @@ flowchart TD
 4. 然后制作菱形音轨 UI，让当前节拍点和玩家输入点可视化。
 5. 最后接入敌人 BPM 攻击、动画占位、暂停和战斗统计。
 
+## Plan 开发与验收规范（必守）
+
+**之后每一轮 Plan 都必须包含「Agent + UnityMCP 验收」章节，且实现完成前不得收口。**
+
+| 要求 | 说明 |
+|------|------|
+| Plan 文档 | 每轮计划需写清：前置条件、MCP 步骤顺序、用例表、通过标准、失败排查；可参考第 1/2 轮计划中的验收流程。 |
+| Agent 执行 | 编码/改场景后，Agent **必须**调用 UnityMCP：`Unity_GetConsoleLogs`（编译门禁）→ `Unity_RunCommand`（场景/组件/自动化用例）→ 必要时再拉日志核对 `[Beat]` / `[Spell]` 等前缀。 |
+| 测试 API | 若功能依赖 Play 或按键，Plan 应要求提供 **Editor/Play 可调用测试入口**（如 `SimulateStep`），避免 MCP 无法模拟键盘导致「未验收就完成」。 |
+| 完成定义 | 仅当 MCP 用例通过 +（可选）你本地试玩确认，才将该轮 todo 标 completed 并更新本文件。 |
+| 分工 | C# 逻辑手写；MCP 负责 Editor 操作、Play 模式触发、Console 取证，**不**用 MCP 替代核心玩法代码。 |
+
 ## 计划使用指南：小步迭代 vibeCoding
 - 每一轮只选一个高优先级目标，不要同时要求节拍、魔法、UI、敌人全都完成。
 - 每轮开始时，用一句话描述本轮目标，例如：`本轮只实现 BeatClock 和 RhythmJudge，按键时在 Console 输出 Perfect / Good / Miss`。
 - 每轮都要求一个可验证结果，例如 Console 日志、Inspector 可调参数、场景中可见的 UI 变化或敌人扣血。
+- **每轮 Plan 必须附带 UnityMCP 验收流程，并由 Agent 实际跑通后再标记完成（见上一节）。**
 - 每轮完成后先试玩，再根据手感调整窗口参数，例如 `BPM`、`PerfectWindowMs`、`GoodWindowMs`，不要急着扩展新系统。
 - 遇到体验不准时，优先检查节拍时间轴和输入判定，再检查 UI 表现；因为音轨 UI 只是辅助显示，不应该反过来驱动判定。
 - 使用 UnityMCP 时，适合让它做场景搭建、对象挂载、截图检查和 Console 日志读取；核心 C# 逻辑仍按本计划分模块实现。
@@ -134,7 +148,7 @@ flowchart TD
 
 ## Unity 项目落地方式
 - 当前项目已安装 `com.unity.inputsystem` 和 `com.unity.ugui`，可直接使用 Input System 绑定咏唱/施法按键，UI 使用 Canvas + UGUI 搭建。
-- 由于 `Assets` 下还没有脚本，后续实现会创建少量必要脚本，并尽量按模块放入 `Assets/Scripts/`。
+- 脚本按模块放在 `Assets/Scripts/`；新轮次开发结束须走 **UnityMCP 验收**（见「Plan 开发与验收规范」）。
 - 使用 UnityMCP 时，优先让它辅助创建场景对象、Canvas、占位 Sprite、测试 AudioSource 和组件挂载；核心判定逻辑仍放在 C# 脚本中，方便调试和扩展。
 
 ## 原型成功标准
