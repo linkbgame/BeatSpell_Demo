@@ -236,3 +236,18 @@ flowchart TD
   - S4：`4 / trackPhase=0 / beatIndex=4`
   - 回归：`Chant 0 + Cast 1` → `Matched`，20→10
 - **状态**：小步 1 **completed**（冻结 plan frontmatter 不更新）。下一步：小步 2 移除 Miss 打断。
+
+## 第 4 轮魔法完整补完 · 小步 2（输入准确度不再打断）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 不得修改。
+- **本轮目标**：超出 Good 窗口记为 `Weak` 并入队，不再 `ChantBroken`；空施法半拍封锁仍拦截。
+- **改动摘要**：
+  - `Assets/Scripts/Rhythm/RhythmJudge.cs`：超出 Good 返回 `Weak`
+  - `Assets/Scripts/Rhythm/BeatTimingGrade.cs`：`Weak=2`，`Miss` 为别名，日志显示 Weak
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：删除 Miss 打断清空
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：Weak 同样留痕
+- **MCP 验收**：Play 模式 B / I / 回归通过。前缀 `[Beat]` / `[Spell]`。
+  - B：`Chant 0/200ms` → `Weak`，`BufferCount=1`，无 `ChantBroken`，1 个 Marker
+  - I：空 `Cast` → `EmptyCastPenalty`；封锁内 `Chant` → `InputRejected`，缓冲 0
+  - 回归：`Chant 0 + Cast 1` → `Matched`，20→10
+- **状态**：小步 2 **completed**。`SpellMatcher` 仍把 Miss/Weak 当伤害 0，留给小步 4。下一步：小步 3 小数拍配方匹配。

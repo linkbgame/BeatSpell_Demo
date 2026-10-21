@@ -219,7 +219,7 @@ namespace BeatSpell.Prototype
             BeatTimingGrade grade = rhythmJudge.Evaluate(timing.DeltaMs);
             string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
             Debug.Log(
-                $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
+                $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
 
             if (inputController != null)
             {

@@ -7,9 +7,9 @@ namespace BeatSpell.Rhythm
     {
         Perfect = 0,
         Good = 1,
-        /// <summary>弱命中；第 4 轮补完中逐步替代 Miss 语义，小步 2 起不再用于打断咏唱。</summary>
-        Miss = 2,
-        Weak = Miss
+        /// <summary>弱命中；不打断咏唱。Miss 为兼容别名。</summary>
+        Weak = 2,
+        Miss = Weak
     }
 
     /// <summary>

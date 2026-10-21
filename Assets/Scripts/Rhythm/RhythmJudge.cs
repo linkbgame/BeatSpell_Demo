@@ -4,7 +4,8 @@ using UnityEngine;
 namespace BeatSpell.Rhythm
 {
     /// <summary>
-    /// 纯判定逻辑：根据与最近节拍点的毫秒偏差输出 Perfect / Good / Miss。
+    /// 准确度判定：根据与最近节拍点的毫秒偏差输出 Perfect / Good / Weak。
+    /// Weak 仍可入队，不打断咏唱。
     /// </summary>
     [Serializable]
     public class RhythmJudge
@@ -37,7 +38,7 @@ namespace BeatSpell.Rhythm
                 return BeatTimingGrade.Good;
             }
 
-            return BeatTimingGrade.Miss;
+            return BeatTimingGrade.Weak;
         }
     }
 }

@@ -9,7 +9,7 @@ namespace BeatSpell.UI
 {
     /// <summary>
     /// 第 4 轮：按输入时刻在菱形轨迹上连续留痕。不吸附四顶点。
-    /// 首个 Marker 起算一圈后销毁；新一轮咏唱会先清掉上一轮残留。
+    /// Weak 与 Perfect/Good 一样留痕；新一轮咏唱会先清掉上一轮残留。
     /// </summary>
     public class BeatInputMarkerView : MonoBehaviour
     {
@@ -140,9 +140,7 @@ namespace BeatSpell.UI
 
         private void HandleEntryAdded(RhythmInputEntry entry)
         {
-            bool newChantRound = buffer != null &&
-                                 buffer.Count <= 1 &&
-                                 entry.Grade != BeatTimingGrade.Miss;
+            bool newChantRound = buffer != null && buffer.Count <= 1;
             if (newChantRound && spawnedMarkers.Count > 0)
             {
                 ClearMarkers();

@@ -14,8 +14,8 @@ namespace BeatSpell.Spell
     }
 
     /// <summary>
-    /// 咏唱序列缓冲：Miss 打断；首个有效咏唱开启一圈生命周期；Cast 时匹配。
-    /// 允许多段 Chant，由 SpellMatcher 按配方长度与间隔判定，不再把第二段 Chant 视为非法。
+    /// 咏唱序列缓冲：任意准确度均可入队；首个输入开启一圈生命周期；Cast 时匹配。
+    /// 允许多段 Chant，由 SpellMatcher 按配方长度与间隔判定。
     /// </summary>
     [Serializable]
     public class SpellInputBuffer
@@ -68,21 +68,6 @@ namespace BeatSpell.Spell
             IReadOnlyList<SpellDefinition> spellCatalog,
             SpellCaster caster)
         {
-            if (grade == BeatTimingGrade.Miss)
-            {
-                Clear();
-                caster?.LogChantBroken();
-                OnEntryAdded?.Invoke(new RhythmInputEntry(
-                    type,
-                    grade,
-                    timing.BeatIndex,
-                    timing.VertexIndex,
-                    timing.DeltaMs,
-                    0,
-                    timing.DspTime));
-                return SpellBufferResult.ChantBroken;
-            }
-
             int intervalBeats = 0;
             if (entries.Count > 0)
             {
