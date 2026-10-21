@@ -4,7 +4,7 @@ using UnityEngine;
 namespace BeatSpell.Spell
 {
     /// <summary>
-    /// 第 2 轮：Console 释放日志。第 3 轮可订阅 OnSpellCast 扣血。
+    /// 匹配结果与伤害数字。第 3 轮由 BattleGameManager 订阅 OnSpellCast 扣血。
     /// </summary>
     public class SpellCaster : MonoBehaviour
     {

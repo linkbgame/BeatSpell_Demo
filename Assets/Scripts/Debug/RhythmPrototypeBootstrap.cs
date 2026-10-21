@@ -1,4 +1,5 @@
 using System;
+using BeatSpell.Combat;
 using BeatSpell.Rhythm;
 using BeatSpell.RhythmInput;
 using BeatSpell.Spell;
@@ -7,7 +8,7 @@ using UnityEngine;
 namespace BeatSpell.Prototype
 {
     /// <summary>
-    /// 场景入口：节拍判定 + 咏唱缓冲 + 火焰魔法匹配。
+    /// 场景入口：节拍判定 + 咏唱缓冲 + 火焰魔法匹配 + 第 3 轮战斗结算查询。
     /// </summary>
     public class RhythmPrototypeBootstrap : MonoBehaviour
     {
@@ -17,14 +18,19 @@ namespace BeatSpell.Prototype
         [SerializeField] private SpellInputBuffer spellInputBuffer = new SpellInputBuffer();
         [SerializeField] private SpellCaster spellCaster;
         [SerializeField] private SpellDefinition[] spellCatalog;
+        [SerializeField] private BattleGameManager battleGameManager;
 
         public BeatClock Clock => beatClock;
         public RhythmJudge Judge => rhythmJudge;
         public SpellInputBuffer InputBuffer => spellInputBuffer;
         public SpellCaster Caster => spellCaster;
+        public BattleGameManager Battle => battleGameManager;
         public int BeatIndex => beatClock != null ? beatClock.BeatIndex : 0;
         public int VertexIndex => beatClock != null ? beatClock.VertexIndex : 0;
         public bool IsClockRunning => beatClock != null && beatClock.IsRunning;
+        public int EnemyCurrentHealth => battleGameManager != null ? battleGameManager.EnemyCurrentHealth : 0;
+        public bool IsEnemyDead => battleGameManager != null && battleGameManager.IsEnemyDead;
+        public bool IsVictory => battleGameManager != null && battleGameManager.IsVictory;
 
         private void Awake()
         {
@@ -93,6 +99,24 @@ namespace BeatSpell.Prototype
             }
         }
 
+        public void ResetCombat()
+        {
+            if (spellInputBuffer != null)
+            {
+                spellInputBuffer.Clear();
+            }
+
+            if (spellCaster != null)
+            {
+                spellCaster.ResetLastResult();
+            }
+
+            if (battleGameManager != null)
+            {
+                battleGameManager.ResetBattle();
+            }
+        }
+
         public void SetGoodWindowMs(float goodWindowMs)
         {
             rhythmJudge.GoodWindowMs = goodWindowMs;
@@ -138,6 +162,11 @@ namespace BeatSpell.Prototype
             if (spellCaster == null)
             {
                 spellCaster = GetComponent<SpellCaster>();
+            }
+
+            if (battleGameManager == null)
+            {
+                battleGameManager = GetComponent<BattleGameManager>();
             }
         }
     }

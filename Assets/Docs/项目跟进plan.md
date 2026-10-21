@@ -12,7 +12,7 @@ todos:
     content: 实现输入缓存、魔法定义、魔法匹配和伤害结算。
     status: completed
   - id: implement-combat-loop
-    content: 接入玩家/敌人血量、基础动画触发和胜负流程。
+    content: 接入玩家/敌人血量、基础动画触发和胜负流程。第 3 轮已完成敌人扣血与击败。
     status: pending
   - id: implement-beat-ui
     content: 实现菱形音轨、当前节拍点、咏唱/施法输入标记和血量 UI。
@@ -100,6 +100,7 @@ flowchart TD
   - `EnemyCombatController`：根据拍号调度攻击预警和攻击瞬间。
   - `EnemyHealth`：管理敌人生命值和死亡。
   - `EnemyAnimationController`：播放待机、预警、攻击、受击动画。
+  - 第 3 轮实测：默认 `maxHealth=20`。`Fireball` Perfect 伤害 10、Good 伤害 8。`SampleScene` 的 `RhythmPrototype/Enemy` 挂 `EnemyHealth`。MCP 用例 1–6 通过（Perfect 剩 10 / Good 剩 12 / Miss 不扣 / MatchFailed 不扣 / 两发 Perfect 击败 / 死后 `Ignored`）。反击与受击动画未做。
 - UI 系统
   - `DiamondBeatTrackView`：显示四边、四顶点、中点，以及当前完美节拍点。
   - `BeatInputMarkerView`：显示玩家输入留下的黄色咏唱点、黑色施法点。
@@ -109,11 +110,12 @@ flowchart TD
   - `BattleGameManager`：控制战斗开始、胜利、失败、暂停。
   - `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Miss 次数。
   - Buff 系统先预留接口，Demo 初期不作为第一优先级。
+  - 第 3 轮实测：`BattleGameManager` 已订阅 `SpellCaster.OnSpellCast` 转发扣血；敌人死亡只打一次 `[Battle] Victory`。失败、暂停、统计未做。`RhythmPrototypeBootstrap.ResetCombat()` 供 MCP 复用。
 
 ## 实现顺序
 1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
 2. 再实现输入序列缓存和魔法匹配，能用咏唱/施法按键释放 1 到 2 个测试魔法。
-3. 接着接入玩家和敌人血量，完成“按节拍施法造成伤害，击败敌人”的闭环。
+3. 接着接入玩家和敌人血量，完成“按节拍施法造成伤害，击败敌人”的闭环。第 3 轮已完成敌人扣血与击败；`PlayerHealth`、失败流程仍待后续轮。
 4. 然后制作菱形音轨 UI，让当前节拍点和玩家输入点可视化。
 5. 最后接入敌人 BPM 攻击、动画占位、暂停和战斗统计。
 
@@ -155,6 +157,17 @@ flowchart TD
 - 播放 BGM 后，全局节拍稳定推进。
 - 玩家按咏唱/施法可获得 `Perfect / Good / Miss`。
 - `Miss` 会打断当前咏唱。
-- 至少一个魔法可以通过节拍序列成功释放并对敌人造成伤害。
+- 至少一个魔法可以通过节拍序列成功释放并对敌人造成伤害。（第 3 轮已用 Console 闭环验证）
 - 菱形音轨能显示当前完美节拍点，以及玩家输入留下的咏唱/施法标记。
 - 敌人能按 BPM 进行预警和攻击。
+
+## 第 3 轮迭代记录
+- 本轮目标：按节拍释放火焰魔法后按伤害扣敌人血，归零记一次胜利。
+- 改动摘要：
+  - `Assets/Scripts/Combat/EnemyHealth.cs`
+  - `Assets/Scripts/Combat/BattleGameManager.cs`
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`（`ResetCombat` / 血量与胜利查询）
+  - `Assets/Scenes/SampleScene.unity`：`RhythmPrototype` 挂 `BattleGameManager`，子物体 `Enemy` 挂 `EnemyHealth`（默认 20）
+- MCP 验收：Play 模式 `SimulateStep` 用例 1–6 通过。前缀 `[Spell]` / `[Combat]` / `[Battle]`。Perfect 剩 10；Good 剩 12；Miss / MatchFailed 不扣血；两发 Perfect 出现一次 `Dead` + `Victory`；死后 `[Combat] Ignored | already dead`，无第二次 Victory。
+- todo：`implement-combat-loop` 保持 pending（玩家血量、动画、失败/暂停未做）。
+- 新问题：伤害公式仍固定 Good=0.8，未做 70%–90% 插值；血条 UI 未做，试玩请看 Inspector `Enemy.Current Health` 与 Console。
