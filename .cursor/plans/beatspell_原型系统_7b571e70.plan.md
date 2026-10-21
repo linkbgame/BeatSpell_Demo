@@ -3,19 +3,19 @@ name: BeatSpell 原型系统
 overview: 为 Unity6 音乐节奏施法 Demo 明确核心玩法规则，并规划第一版系统拆分与实现顺序。重点是先完成 BPM 节拍时钟、咏唱/施法输入判定、魔法匹配、节拍 UI 辅助显示和基础敌人节拍行动。
 todos:
   - id: confirm-core-rules
-    content: 固化当前确认的核心玩法规则：先咏唱后施法、miss 打断、敌人跟随 BPM。
+    content: 固化当前确认的核心玩法规则：任意时刻可咏唱/施法，魔法用配方容差匹配，敌人跟随 BPM。
     status: pending
   - id: implement-beat-core
     content: 实现基于 AudioSettings.dspTime 的 BeatClock 与 RhythmJudge。
     status: pending
   - id: implement-spell-flow
-    content: 实现输入缓存、魔法定义、魔法匹配和伤害结算。
+    content: 实现输入缓存、支持半拍/1/4拍的魔法定义、容差匹配和伤害结算。
     status: pending
   - id: implement-combat-loop
     content: 接入玩家/敌人血量、基础动画触发和胜负流程。
     status: pending
   - id: implement-beat-ui
-    content: 实现菱形音轨、当前节拍点、咏唱/施法输入标记和血量 UI。
+    content: 实现菱形音轨、四顶点当前节拍点、咏唱/施法队列留痕和血量 UI。
     status: pending
   - id: setup-unity-scene
     content: 使用 UnityMCP 辅助搭建测试场景、对象层级和组件引用。
@@ -28,28 +28,30 @@ isProject: false
 ## 已确认玩法规则
 
 - 玩家在战斗房间中根据局内 BGM 的 BPM 输入节拍。
-- 输入分为两个动作：`咏唱` 和 `施法`，两者都参与节拍判定。
-- 每次输入都基于全局 BPM 时间轴判定为 `Perfect`、`Good` 或 `Miss`。
-- `Miss` 会立刻打断当前咏唱，清空输入序列，本次魔法失败。
+- 输入分为两个动作：`咏唱` 和 `施法`，两者都记录到全局 BPM 时间轴。
+- 每次输入都基于全局 BPM 时间轴得到准确度反馈：`Perfect`、`Good` 或 `Weak`。
+- 旧规则“`Miss` 立刻打断当前咏唱”废弃；节拍偏移不再直接打断输入序列，只影响 UI 反馈与伤害倍率。
 - 玩家先进行若干次咏唱，最后通过施法键结束序列并尝试释放魔法。
-- 魔法识别推荐使用“输入类型序列 + 输入间隔拍数”，而不是依赖菱形 UI 的绝对顶点。
-- 菱形音轨只是 UI 可视化辅助：四个顶点依次显示当前完美节拍点，输入判定不依赖 UI 本身。
+- 魔法识别使用“输入类型序列 + 小数拍间隔 + 容差”，支持 `0.5` 拍、`0.25` 拍等非整数拍配方。
+- 魔法是否释放成功由 `SpellMatcher` 判断：类型和数量一致，并且相邻输入间隔与配方间隔差值不超过 `matchToleranceBeats`。
+- 菱形音轨只是 UI 可视化辅助：当前节拍白点仍只在四个顶点依次显示；输入判定和生命周期判断不依赖 UI 本身。
+- 留痕是队列模型：队首输入点作为生命周期参考，底层当前节拍相位绕一圈回到队首相位时，清空输入缓存和音轨留痕。
 - 敌人也跟随 BPM 行动，例如提前若干拍播放攻击预警，在指定节拍点执行攻击。
 
 ## 推荐核心判定模型
 
 - 使用 `AudioSettings.dspTime` 作为节拍时钟基础，避免普通 `Time.time` 带来的音频同步误差。
 - 根据 `BPM` 计算每拍长度：`secondsPerBeat = 60f / bpm`。
-- 玩家按键时，计算输入时间距离最近理论节拍点的偏差。
+- 玩家按键时，记录连续 `BeatFloat` 与 `TrackPhase`，并计算输入时间距离最近理论节拍点的偏差。
 - 判定窗口建议初始值：
   - `Perfect`：约 ±50ms
   - `Good`：约 ±120ms
-  - `Miss`：超过 Good 窗口
+  - `Weak`：超过 Good 窗口，但仍可进入咏唱/施法队列
 - 魔法匹配示例：
-  - 火球术：`咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 施法`
-  - 治疗术：`咏唱 -> 2拍 -> 咏唱 -> 1拍 -> 施法`
-  - 雷击术：`咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 施法`
-- 伤害结算建议：全部 Perfect 为 100%，含 Good 无 Miss 时降低到 70% 到 90%，任意 Miss 为 0。
+  - 火焰魔法（Demo）：`咏唱 -> 1拍 -> 施法`
+  - 半拍测试魔法：`咏唱 -> 0.5拍 -> 咏唱 -> 0.5拍 -> 施法`
+  - 1/4 拍测试魔法：`咏唱 -> 0.25拍 -> 施法`
+- 伤害结算建议：全部 Perfect 为 100%；只要包含非 Perfect 但配方匹配成功，先统一为 80%；后续再按偏移量做连续伤害曲线。
 
 ## 原型架构图
 
@@ -88,7 +90,7 @@ flowchart TD
 
 - 节拍系统
   - `BeatClock`：维护 BPM、当前拍号、当前四顶点索引、输入偏差计算。
-  - `RhythmJudge`：根据偏差输出 `Perfect / Good / Miss`。
+- `RhythmJudge`：根据偏差输出 `Perfect / Good / Weak`，只表示准确度，不负责打断输入。
   - `PlayerRhythmInputController`：接收咏唱/施法输入，不在 `Update` 中反复 `GetComponent`。
 - 魔法系统
   - `SpellDefinition`：用 ScriptableObject 配置魔法名、等级、基础伤害、输入步骤和间隔。
@@ -98,7 +100,7 @@ flowchart TD
 - 玩家系统
   - `PlayerCombatController`：整合输入、咏唱状态、施法结果。
   - `PlayerHealth`：管理玩家生命值。
-  - `PlayerAnimationController`：播放待机、咏唱、施法、Miss 动画。
+- `PlayerAnimationController`：播放待机、咏唱、施法、弱命中反馈动画。
 - 敌人系统
   - `EnemyCombatController`：根据拍号调度攻击预警和攻击瞬间。
   - `EnemyHealth`：管理敌人生命值和死亡。
@@ -110,12 +112,12 @@ flowchart TD
   - `HintTextView`：显示操作提示和判定结果。
 - 全局系统
   - `BattleGameManager`：控制战斗开始、胜利、失败、暂停。
-  - `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Miss 次数。
+- `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Weak 次数和魔法匹配失败次数。
   - Buff 系统先预留接口，Demo 初期不作为第一优先级。
 
 ## 实现顺序
 
-1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
+1. 先完成节拍时钟和输入准确度，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Weak`。
 2. 再实现输入序列缓存和魔法匹配，能用咏唱/施法按键释放 1 到 2 个测试魔法。
 3. 接着接入玩家和敌人血量，完成“按节拍施法造成伤害，击败敌人”的闭环。
 4. 然后制作菱形音轨 UI，让当前节拍点和玩家输入点可视化。
@@ -124,7 +126,7 @@ flowchart TD
 ## 计划使用指南：小步迭代 vibeCoding
 
 - 每一轮只选一个高优先级目标，不要同时要求节拍、魔法、UI、敌人全都完成。
-- 每轮开始时，用一句话描述本轮目标，例如：`本轮只实现 BeatClock 和 RhythmJudge，按键时在 Console 输出 Perfect / Good / Miss`。
+- 每轮开始时，用一句话描述本轮目标，例如：`本轮只实现 BeatClock 和 RhythmJudge，按键时在 Console 输出 Perfect / Good / Weak`。
 - 每轮都要求一个可验证结果，例如 Console 日志、Inspector 可调参数、场景中可见的 UI 变化或敌人扣血。
 - 每轮完成后先试玩，再根据手感调整窗口参数，例如 `BPM`、`PerfectWindowMs`、`GoodWindowMs`，不要急着扩展新系统。
 - 遇到体验不准时，优先检查节拍时间轴和输入判定，再检查 UI 表现；因为音轨 UI 只是辅助显示，不应该反过来驱动判定。
@@ -138,6 +140,96 @@ flowchart TD
   6. 第 6 轮：补动画、统计、暂停和 Buff 预留。
 - 每轮结束都更新这份计划：把已完成项标记出来，把新发现的问题写到对应系统下面，避免需求散落在聊天里。
 
+## 第 4 轮魔法系统完整补完计划
+
+### 本轮目标
+
+本轮先不进入第 5 轮敌人节拍攻击，而是完整补齐第 4 轮遗留的魔法输入模型：
+
+- 魔法配方支持 `0.5` 拍、`0.25` 拍等非整数间隔。
+- 玩家任意时刻都能咏唱/施法，输入不再因为 `Miss` 被打断；节拍准确度只影响伤害和 UI 反馈。
+- 魔法释放仍有配方匹配边界：输入类型、数量、相邻间隔必须在最大误差阈值内，超出阈值则匹配失败。
+- 留痕改为队列模型：队首输入点作为生命周期参考，底层当前节拍相位绕一圈后与队首相位相交时清空缓存和 UI。
+- 当前节拍白点 UI 继续保持现有模式：只在 Top / Right / Bottom / Left 四个顶点跳动，不新增沿边连续移动的白色游标。
+
+### 接入架构
+
+```mermaid
+flowchart TD
+  BeatClock["BeatClock: 连续 BeatFloat 和 TrackPhase"] --> RhythmPrototypeBootstrap["RhythmPrototypeBootstrap: 输入总入口"]
+  PlayerInput["PlayerRhythmInputController: Chant 和 Cast"] --> RhythmPrototypeBootstrap
+  RhythmPrototypeBootstrap --> TimingJudge["RhythmJudge: Perfect Good Weak"]
+  TimingJudge --> SpellInputBuffer["SpellInputBuffer: 任意输入入队"]
+  BeatClock --> SpellInputBuffer
+  SpellInputBuffer --> SpellMatcher["SpellMatcher: 小数拍间隔和容差匹配"]
+  SpellDefinition["SpellDefinition: 0.25拍粒度配方"] --> SpellMatcher
+  SpellMatcher --> SpellCaster["SpellCaster: 统一削弱伤害"]
+  SpellInputBuffer --> BeatInputMarkerView["BeatInputMarkerView: 队首留痕生命周期"]
+  BeatClock --> DiamondBeatTrackView["DiamondBeatTrackView: 四顶点白点显示"]
+  DiamondBeatTrackView --> BeatInputMarkerView
+  SpellCaster --> BattleGameManager["BattleGameManager: 扣血"]
+```
+
+### 小步 1：节拍时间模型支持小数拍
+
+修改 `Assets/Scripts/Rhythm/BeatClock.cs` 和 `Assets/Scripts/Rhythm/BeatTimingGrade.cs`：
+
+- 给 `BeatTimingInfo` 增加连续字段：`BeatFloat`、`TrackPhase`。
+- `BeatFloat = (dspNow - songStartDspTime) / secondsPerBeat`，`TrackPhase = BeatFloat % 4`。
+- 保留 `BeatIndex` / `VertexIndex` 给现有四顶点白点 UI 和日志兼容，但后续匹配不再依赖整数 `BeatIndex`。
+- 把 `Miss` 语义替换为 `Weak` 或等价弱命中档位；如果为了减少一次性破坏可先保留枚举名，但不得再用于打断咏唱。
+
+### 小步 2：输入准确度不再打断
+
+修改 `Assets/Scripts/Rhythm/RhythmJudge.cs`、`Assets/Scripts/Spell/SpellInputBuffer.cs`、`Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：
+
+- `RhythmJudge` 只输出准确度：`Perfect / Good / Weak`。
+- `SpellInputBuffer.TryAppend` 删除 `grade == Miss` 时 `Clear()` 和 `ChantBroken` 的路径。
+- 任意咏唱/施法都能入队，除非仍处于“空施法半拍封锁”这种结构性惩罚。
+- 空施法惩罚暂时保留，因为它不是节拍偏移 Miss，而是“无咏唱直接 Cast”的结构规则；如后续要取消，可单独迭代。
+
+### 小步 3：魔法配方支持半拍和 1/4 拍
+
+修改 `Assets/Scripts/Spell/SpellDefinition.cs`、`Assets/Scripts/Spell/RhythmInputEntry.cs`、`Assets/Scripts/Spell/SpellMatcher.cs`：
+
+- `RhythmInputEntry` 增加 `BeatFloat`，把 `IntervalBeatsFromPrevious` 从 `int` 改为 `float`。
+- `SpellDefinition` 的 `intervalsBetweenSteps` 从 `int[]` 改为 `float[]`，Inspector 中可填 `1`、`0.5`、`0.25`。
+- 增加 `matchToleranceBeats`，建议默认 `0.125` 拍，也就是 1/8 拍容差。
+- `SpellMatcher` 用 `abs(actualInterval - expectedInterval) <= tolerance` 判断，而不是整数相等。
+- 新增测试配方：`Fireball_Lv1`、`HalfBeat_Test`、`QuarterBeat_Test`。
+
+### 小步 4：统一削弱伤害，不再因 Weak 归零
+
+修改 `Assets/Scripts/Spell/SpellMatcher.cs` 和 `Assets/Scripts/Spell/SpellCaster.cs`：
+
+- 匹配成功后，如果全部输入都是 `Perfect`，`damageFactor = 1.0`。
+- 只要有任意非 Perfect 输入，先统一 `damageFactor = 0.8`。
+- 不再出现 `Weak/Miss -> damageFactor=0` 的逻辑。
+- Console 日志建议输出：`[Spell] Matched Fireball | accuracy=Mixed | damageFactor=0.8`。
+
+### 小步 5：重做留痕生命周期和视觉等级
+
+修改 `Assets/Scripts/UI/DiamondBeatTrackView.cs` 和 `Assets/Scripts/UI/BeatInputMarkerView.cs`：
+
+- `DiamondBeatTrackView` 保留现有当前节拍点 UI：白点只在 Top / Right / Bottom / Left 四个顶点跳动，不新增沿边连续移动的白色游标。
+- `BeatClock.TrackPhase` 仍保留为规则层数据，用于判断“底层当前节拍位置”是否绕回队首输入相位；它不直接改变当前白点 UI 的显示模式。
+- `BeatInputMarkerView` 不再用固定秒数简单清理，而是记录队首 `BeatFloat` / `TrackPhase`。
+- 当当前 `BeatFloat >= headBeatFloat + 4`，说明底层节拍相位绕一圈回到队首输入点，清空输入缓存和 Marker。
+- Marker 样式按准确度区分：`Perfect` 显示黄色底 + 放射线段；`Good/Weak` 显示黄色底但不显示放射线段。
+- 队首清理必须由核心节拍数据判断，不能由 UI 碰撞或图片位置反推。
+
+### Agent + UnityMCP 验收
+
+- A：`Chant beat=0 offset=0` 入队，准确度 `Perfect`，Marker 有放射线。
+- B：`Chant beat=0 offset=200ms` 也入队，不触发 `ChantBroken`，Marker 无放射线。
+- C：`Fireball_Lv1`：`Chant beat=0` + `Cast beat=1` 匹配成功，`damageFactor=1.0`。
+- D：`Fireball_Lv1`：`Chant beat=0` + `Cast beat=1 offset=80ms` 匹配成功，`damageFactor=0.8`。
+- E：`HalfBeat_Test`：`Chant beat=0` + `Chant beat=0.5` + `Cast beat=1.0` 匹配成功。
+- F：`QuarterBeat_Test`：`Chant beat=0` + `Cast beat=0.25` 匹配成功。
+- G：超出容差：`QuarterBeat_Test` 的 Cast 输入偏离超过 `matchToleranceBeats`，匹配失败但不是因为 `Miss` 打断。
+- H：队首生命周期：首个输入在 `beatFloat=0.25`，底层当前节拍推进到 `4.24` 时不清，推进到 `4.25` 或之后清空缓存和 Marker；白点 UI 仍只在四顶点跳动。
+- I：空施法半拍封锁仍有效：无咏唱直接 Cast 后封锁内输入不入队；封锁结束后任意时刻可重新咏唱。
+
 ## Unity 项目落地方式
 
 - 当前项目已安装 `com.unity.inputsystem` 和 `com.unity.ugui`，可直接使用 Input System 绑定咏唱/施法按键，UI 使用 Canvas + UGUI 搭建。
@@ -147,8 +239,8 @@ flowchart TD
 ## 原型成功标准
 
 - 播放 BGM 后，全局节拍稳定推进。
-- 玩家按咏唱/施法可获得 `Perfect / Good / Miss`。
-- `Miss` 会打断当前咏唱。
-- 至少一个魔法可以通过节拍序列成功释放并对敌人造成伤害。
-- 菱形音轨能显示当前完美节拍点，以及玩家输入留下的咏唱/施法标记。
+- 玩家按咏唱/施法可获得 `Perfect / Good / Weak` 准确度反馈，任意节拍偏移都不会直接打断输入队列。
+- 至少一个整数拍魔法、一个半拍魔法、一个 1/4 拍魔法可以通过配方容差匹配成功释放。
+- 匹配成功后，全部 Perfect 为最大伤害；包含非 Perfect 时先统一削弱伤害。
+- 菱形音轨能显示四顶点当前节拍点，以及玩家输入留下的咏唱/施法队列留痕；队首相位绕一圈后自动清空。
 - 敌人能按 BPM 进行预警和攻击。
