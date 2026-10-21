@@ -7,7 +7,9 @@ namespace BeatSpell.Rhythm
     {
         Perfect = 0,
         Good = 1,
-        Miss = 2
+        /// <summary>弱命中；第 4 轮补完中逐步替代 Miss 语义，小步 2 起不再用于打断咏唱。</summary>
+        Miss = 2,
+        Weak = Miss
     }
 
     /// <summary>
@@ -21,20 +23,31 @@ namespace BeatSpell.Rhythm
 
     /// <summary>
     /// 某次 dsp 时刻相对 BPM 时间轴的采样结果。
+    /// BeatFloat / TrackPhase 供半拍、1/4 拍配方与队首生命周期；VertexIndex 仍供四顶点白点 UI。
     /// </summary>
     public readonly struct BeatTimingInfo
     {
         public readonly int BeatIndex;
         public readonly int VertexIndex;
+        public readonly float BeatFloat;
+        public readonly float TrackPhase;
         public readonly float DeltaMs;
         public readonly double DspTime;
 
-        public BeatTimingInfo(int beatIndex, int vertexIndex, float deltaMs, double dspTime)
+        public BeatTimingInfo(
+            int beatIndex,
+            int vertexIndex,
+            float deltaMs,
+            double dspTime,
+            float beatFloat = float.NaN,
+            float trackPhase = float.NaN)
         {
             BeatIndex = beatIndex;
             VertexIndex = vertexIndex;
             DeltaMs = deltaMs;
             DspTime = dspTime;
+            BeatFloat = float.IsNaN(beatFloat) ? beatIndex : beatFloat;
+            TrackPhase = float.IsNaN(trackPhase) ? PositiveModFloat(BeatFloat, 4f) : trackPhase;
         }
 
         public static string VertexName(int vertexIndex)
@@ -52,6 +65,12 @@ namespace BeatSpell.Rhythm
         {
             int remainder = value % modulo;
             return remainder < 0 ? remainder + modulo : remainder;
+        }
+
+        public static float PositiveModFloat(float value, float modulo)
+        {
+            float remainder = value % modulo;
+            return remainder < 0f ? remainder + modulo : remainder;
         }
     }
 }

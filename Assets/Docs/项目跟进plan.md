@@ -219,3 +219,20 @@ flowchart TD
 - todo：`implement-spell-flow` 保持 completed；第 5 轮敌人节拍攻击仍未开始。
 - Inspector：`RhythmPrototype` 上 `chantLifetimeBeats=4`、`emptyCastPenaltyBeats=0.5`。惩罚手感只调后者，不要改判定窗口。
 - 新问题：半拍封锁结束后，当前拍可能已离开 Perfect/Good 窗口（BPM 120 时 beat0+251ms 是 Miss）。恢复输入应打下一拍，而不是同一拍的大偏移。成功 `Added` 的 Chant 不改 `LastSpellLog`，验收以 `BufferCount` / `HasActiveChantLifecycle` 为准。
+
+## 第 4 轮魔法完整补完 · 小步 1（节拍时间模型 / 小数拍）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 不得修改；Cursor 规则 `.cursor/rules/round4-spell-plan-frozen.mdc`（`alwaysApply: true`）。
+- **本轮目标（小步 1）**：`BeatTimingInfo` 增加 `BeatFloat`、`TrackPhase`；`BeatClock` 全路径写入连续相位；枚举增加 `Weak = Miss` 别名，小步 2 再改打断逻辑。
+- **改动摘要**：
+  - `Assets/Scripts/Rhythm/BeatTimingGrade.cs`：`BeatFloat` / `TrackPhase`；`PositiveModFloat`；`Weak = Miss`。
+  - `Assets/Scripts/Rhythm/BeatClock.cs`：`BuildTiming`；`GetTimingForBeatFloat`；属性 `BeatFloat` / `TrackPhase`；Tick 日志含连续相位。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：`CurrentBeatFloat` / `CurrentTrackPhase`；`SampleTimingForBeatFloat`。
+  - `.cursor/rules/round4-spell-plan-frozen.mdc`、`beatspell-docs-iteration.mdc` 引用只读基准。
+- **MCP 验收**：Play 模式 S1–S4 + `RegressFireball` 通过。前缀 `[Beat]` / `[Spell]`。
+  - S1：`beatFloat=0 trackPhase=0 vertex=0`
+  - S2：`0.5 / 0.5 / beatIndex=0`
+  - S3：`1.25 / 1.25 / beatIndex=1`
+  - S4：`4 / trackPhase=0 / beatIndex=4`
+  - 回归：`Chant 0 + Cast 1` → `Matched`，20→10
+- **状态**：小步 1 **completed**（冻结 plan frontmatter 不更新）。下一步：小步 2 移除 Miss 打断。

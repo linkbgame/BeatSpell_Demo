@@ -32,6 +32,10 @@ namespace BeatSpell.Rhythm
 
         public int VertexIndex => GetTimingAt(AudioSettings.dspTime).VertexIndex;
 
+        public float BeatFloat => GetTimingAt(AudioSettings.dspTime).BeatFloat;
+
+        public float TrackPhase => GetTimingAt(AudioSettings.dspTime).TrackPhase;
+
         public double SongStartDspTime => songStartDspTime;
 
         public AudioSource AudioSource => audioSource;
@@ -62,7 +66,7 @@ namespace BeatSpell.Rhythm
             {
                 lastLoggedBeatIndex = timing.BeatIndex;
                 Debug.Log(
-                    $"[Beat] Tick | beat={timing.BeatIndex} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
+                    $"[Beat] Tick | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | trackPhase={timing.TrackPhase:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
             }
         }
 
@@ -88,18 +92,13 @@ namespace BeatSpell.Rhythm
         {
             if (!isRunning)
             {
-                return new BeatTimingInfo(0, 0, 0f, dspNow);
+                return BuildTiming(0f, dspNow, 0f);
             }
 
             double elapsed = dspNow - songStartDspTime;
             float secondsPerBeat = SecondsPerBeat;
-            double beatFloat = elapsed / secondsPerBeat;
-            int beatIndex = Mathf.FloorToInt((float)beatFloat);
-            int nearestBeat = Mathf.RoundToInt((float)beatFloat);
-            double nearestBeatTime = songStartDspTime + nearestBeat * (double)secondsPerBeat;
-            float deltaMs = (float)((dspNow - nearestBeatTime) * 1000.0);
-            int vertexIndex = BeatTimingInfo.PositiveMod(Mathf.Max(beatIndex, 0), 4);
-            return new BeatTimingInfo(Mathf.Max(beatIndex, 0), vertexIndex, deltaMs, dspNow);
+            float beatFloat = (float)(elapsed / secondsPerBeat);
+            return BuildTiming(beatFloat, dspNow, secondsPerBeat);
         }
 
         /// <summary>
@@ -108,7 +107,10 @@ namespace BeatSpell.Rhythm
         public BeatTimingInfo GetSimulatedTiming(float offsetMs)
         {
             BeatTimingInfo live = GetTimingAt(AudioSettings.dspTime);
-            return new BeatTimingInfo(live.BeatIndex, live.VertexIndex, offsetMs, live.DspTime);
+            float secondsPerBeat = SecondsPerBeat;
+            int nearestBeat = Mathf.RoundToInt(live.BeatFloat);
+            float beatFloat = nearestBeat + offsetMs / (1000f * secondsPerBeat);
+            return BuildTiming(beatFloat, live.DspTime, secondsPerBeat);
         }
 
         /// <summary>
@@ -117,15 +119,44 @@ namespace BeatSpell.Rhythm
         public BeatTimingInfo GetTimingForBeatIndex(int beatIndex, float offsetMs)
         {
             beatIndex = Mathf.Max(0, beatIndex);
-            int vertexIndex = BeatTimingInfo.PositiveMod(beatIndex, 4);
+            float secondsPerBeat = SecondsPerBeat;
+            float beatFloat = beatIndex + offsetMs / (1000f * secondsPerBeat);
             if (!isRunning)
             {
-                return new BeatTimingInfo(beatIndex, vertexIndex, offsetMs, AudioSettings.dspTime);
+                return BuildTiming(beatFloat, AudioSettings.dspTime, secondsPerBeat);
             }
 
-            double beatTime = songStartDspTime + beatIndex * (double)SecondsPerBeat;
+            double beatTime = songStartDspTime + beatIndex * (double)secondsPerBeat;
             double dspNow = beatTime + offsetMs * 0.001;
-            return new BeatTimingInfo(beatIndex, vertexIndex, offsetMs, dspNow);
+            return BuildTiming(beatFloat, dspNow, secondsPerBeat);
+        }
+
+        /// <summary>
+        /// MCP：指定连续拍位置（可含 0.5 / 0.25 等非整数拍）。
+        /// </summary>
+        public BeatTimingInfo GetTimingForBeatFloat(float beatFloat)
+        {
+            beatFloat = Mathf.Max(0f, beatFloat);
+            float secondsPerBeat = SecondsPerBeat;
+            if (!isRunning)
+            {
+                return BuildTiming(beatFloat, AudioSettings.dspTime, secondsPerBeat);
+            }
+
+            double dspNow = songStartDspTime + beatFloat * secondsPerBeat;
+            return BuildTiming(beatFloat, dspNow, secondsPerBeat);
+        }
+
+        private static BeatTimingInfo BuildTiming(float beatFloat, double dspNow, float secondsPerBeat)
+        {
+            int beatIndex = Mathf.Max(0, Mathf.FloorToInt(beatFloat));
+            int nearestBeat = Mathf.RoundToInt(beatFloat);
+            float deltaMs = secondsPerBeat > 0f
+                ? (beatFloat - nearestBeat) * secondsPerBeat * 1000f
+                : 0f;
+            int vertexIndex = BeatTimingInfo.PositiveMod(beatIndex, 4);
+            float trackPhase = BeatTimingInfo.PositiveModFloat(beatFloat, 4f);
+            return new BeatTimingInfo(beatIndex, vertexIndex, deltaMs, dspNow, beatFloat, trackPhase);
         }
 
         private void TryStartClock(bool force = false)

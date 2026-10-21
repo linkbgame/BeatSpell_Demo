@@ -8,7 +8,8 @@ alwaysApply: true
 ## 必读文档（开发前对齐）
 
 1. **主计划**：`.cursor/plans/beatspell_原型系统_7b571e70.plan.md` — 玩法规则、系统拆分、实现顺序与 todo。
-2. **跟进文档**：`Assets/Docs/项目跟进plan.md` — 与主计划同步的落地版；含 MCP 验收规范、实测记录、迭代节奏。
+2. **第4轮魔法补完基准（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` — 小步 1～6 固定清单；**不得修改**（见 `round4-spell-plan-frozen.mdc`）。
+3. **跟进文档**：`Assets/Docs/项目跟进plan.md` — 与主计划同步的落地版；含 MCP 验收规范、实测记录、第4轮各小步完成记录。
 
 开始任何 BeatSpell 功能开发前，先阅读上述文档中与当前轮次相关的章节；实现方式须符合「Plan 开发与验收规范（必守）」。
 

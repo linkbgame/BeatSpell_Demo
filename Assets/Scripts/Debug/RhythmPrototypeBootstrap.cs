@@ -34,6 +34,8 @@ namespace BeatSpell.Prototype
         public BattleGameManager Battle => battleGameManager;
         public int BeatIndex => beatClock != null ? beatClock.BeatIndex : 0;
         public int VertexIndex => beatClock != null ? beatClock.VertexIndex : 0;
+        public float CurrentBeatFloat => beatClock != null ? beatClock.BeatFloat : 0f;
+        public float CurrentTrackPhase => beatClock != null ? beatClock.TrackPhase : 0f;
         public bool IsClockRunning => beatClock != null && beatClock.IsRunning;
         public int EnemyCurrentHealth => battleGameManager != null ? battleGameManager.EnemyCurrentHealth : 0;
         public bool IsEnemyDead => battleGameManager != null && battleGameManager.IsEnemyDead;
@@ -100,6 +102,24 @@ namespace BeatSpell.Prototype
             }
 
             return ProcessInput(type, beatClock.GetTimingForBeatIndex(beatIndex, offsetMs));
+        }
+
+        /// <summary>
+        /// MCP 小步 1：采样连续拍位置，不产生输入。
+        /// </summary>
+        public BeatTimingInfo SampleTimingForBeatFloat(float beatFloat)
+        {
+            if (beatClock == null)
+            {
+                return default;
+            }
+
+            if (!beatClock.IsRunning)
+            {
+                beatClock.StartClock();
+            }
+
+            return beatClock.GetTimingForBeatFloat(beatFloat);
         }
 
         [Serializable]
