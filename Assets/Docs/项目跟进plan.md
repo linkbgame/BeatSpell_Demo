@@ -15,7 +15,7 @@ todos:
     content: 接入玩家/敌人血量、基础动画触发和胜负流程。第 3 轮已完成敌人扣血与击败。
     status: pending
   - id: implement-beat-ui
-    content: 实现菱形音轨、当前节拍点、咏唱/施法输入标记和血量 UI。
+    content: 实现菱形音轨、当前节拍点、咏唱/施法输入标记和血量 UI。第 4 轮已完成中央菱形音轨与输入留痕。
     status: pending
   - id: setup-unity-scene
     content: 使用 UnityMCP 辅助搭建测试场景、对象层级和组件引用。
@@ -106,6 +106,7 @@ flowchart TD
   - `BeatInputMarkerView`：显示玩家输入留下的黄色咏唱点、黑色施法点。
   - `HealthBarView`：玩家和敌人血量显示。
   - `HintTextView`：显示操作提示和判定结果。
+  - 第 4 轮实测：仅中央菱形音轨。Prefab `Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`，规格见 `Assets/Docs/BeatTrack_ArtSpec.md`。色板 `TrackCyan=#5AEBEE`。叠层 Idle < Marker < BeatPulse。边线 Image 须关闭 Preserve Aspect。匹配成功暂不擦痕迹（方便看见黄/黑点）；Miss / MatchFailed / ResetCombat 清空。血条与侧栏技能菱形未做。
 - 全局系统
   - `BattleGameManager`：控制战斗开始、胜利、失败、暂停。
   - `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Miss 次数。
@@ -116,7 +117,7 @@ flowchart TD
 1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
 2. 再实现输入序列缓存和魔法匹配，能用咏唱/施法按键释放 1 到 2 个测试魔法。
 3. 接着接入玩家和敌人血量，完成“按节拍施法造成伤害，击败敌人”的闭环。第 3 轮已完成敌人扣血与击败；`PlayerHealth`、失败流程仍待后续轮。
-4. 然后制作菱形音轨 UI，让当前节拍点和玩家输入点可视化。
+4. 然后制作菱形音轨 UI，让当前节拍点和玩家输入点可视化。第 4 轮已完成中央音轨；血条 / Hint 仍待后续。
 5. 最后接入敌人 BPM 攻击、动画占位、暂停和战斗统计。
 
 ## Plan 开发与验收规范（必守）
@@ -158,7 +159,7 @@ flowchart TD
 - 玩家按咏唱/施法可获得 `Perfect / Good / Miss`。
 - `Miss` 会打断当前咏唱。
 - 至少一个魔法可以通过节拍序列成功释放并对敌人造成伤害。（第 3 轮已用 Console 闭环验证）
-- 菱形音轨能显示当前完美节拍点，以及玩家输入留下的咏唱/施法标记。
+- 菱形音轨能显示当前完美节拍点，以及玩家输入留下的咏唱/施法标记。（第 4 轮已用 Overlay Canvas + `[Track]` 日志验证）
 - 敌人能按 BPM 进行预警和攻击。
 
 ## 第 3 轮迭代记录
@@ -171,3 +172,16 @@ flowchart TD
 - MCP 验收：Play 模式 `SimulateStep` 用例 1–6 通过。前缀 `[Spell]` / `[Combat]` / `[Battle]`。Perfect 剩 10；Good 剩 12；Miss / MatchFailed 不扣血；两发 Perfect 出现一次 `Dead` + `Victory`；死后 `[Combat] Ignored | already dead`，无第二次 Victory。
 - todo：`implement-combat-loop` 保持 pending（玩家血量、动画、失败/暂停未做）。
 - 新问题：伤害公式仍固定 Good=0.8，未做 70%–90% 插值；血条 UI 未做，试玩请看 Inspector `Enemy.Current Health` 与 Console。
+
+## 第 4 轮迭代记录
+- 本轮目标：准备菱形音轨美术并呈现当前拍 + 咏唱/施法留痕，判定仍只走时钟与缓冲。
+- 改动摘要：
+  - `Assets/Docs/BeatTrack_ArtSpec.md`（色值与相对尺寸）
+  - `Assets/Art/UI/BeatTrack/Sprites/`（7 张 PNG，PPU 100，Full Rect）
+  - `Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`、`BeatInputMarkerView.cs`
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`（`OnEntryAdded` / `OnCleared`；匹配成功 `Clear(notify:false)`）
+  - `Assets/Scenes/SampleScene.unity`：`BeatTrackCanvas` Overlay 1920×1080，实例引用 `BeatClock` / Bootstrap
+- MCP 验收：Editor 对照 RefPhoto 切 Beat/Marker 状态；Play 模式 `SetBeatVertex` 0→1→2→3 打 `[Track] BeatVertex`；`SimulateStep` 咏唱顶黄、施法右黑；Miss / MatchFailed 后无留痕。
+- todo：`implement-beat-ui` 保持 pending（血条、Hint、侧栏技能菱形未做）。
+- 与 Ref 差异：矢量重绘而非整图切片；边线关闭 Preserve Aspect 后才能接到四角；当前拍白底叠在灰槽之上。

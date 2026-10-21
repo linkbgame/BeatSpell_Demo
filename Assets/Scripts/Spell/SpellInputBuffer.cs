@@ -22,10 +22,16 @@ namespace BeatSpell.Spell
         private readonly List<RhythmInputEntry> entries = new List<RhythmInputEntry>(8);
 
         public IReadOnlyList<RhythmInputEntry> Entries => entries;
+        public event Action OnCleared;
+        public event Action<RhythmInputEntry> OnEntryAdded;
 
-        public void Clear()
+        public void Clear(bool notify = true)
         {
             entries.Clear();
+            if (notify)
+            {
+                OnCleared?.Invoke();
+            }
         }
 
         public SpellBufferResult TryAppend(
@@ -55,13 +61,15 @@ namespace BeatSpell.Spell
                 return SpellBufferResult.SequenceInvalid;
             }
 
-            entries.Add(new RhythmInputEntry(
+            RhythmInputEntry entry = new RhythmInputEntry(
                 type,
                 grade,
                 timing.BeatIndex,
                 timing.VertexIndex,
                 timing.DeltaMs,
-                intervalBeats));
+                intervalBeats);
+            entries.Add(entry);
+            OnEntryAdded?.Invoke(entry);
 
             if (type != BeatInputType.Cast)
             {
@@ -71,7 +79,7 @@ namespace BeatSpell.Spell
             if (SpellMatcher.TryMatchAny(entries, spellCatalog, out SpellDefinition matched, out float damageFactor))
             {
                 caster?.LogMatched(matched, damageFactor);
-                Clear();
+                Clear(notify: false);
                 return SpellBufferResult.Matched;
             }
 
