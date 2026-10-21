@@ -186,7 +186,7 @@ flowchart TD
 - `RhythmJudge` 只输出准确度：`Perfect / Good / Weak`。
 - `SpellInputBuffer.TryAppend` 删除 `grade == Miss` 时 `Clear()` 和 `ChantBroken` 的路径。
 - 任意咏唱/施法都能入队，除非仍处于“空施法半拍封锁”这种结构性惩罚。
-- 空施法惩罚暂时保留，因为它不是节拍偏移 Miss，而是“无咏唱直接 Cast”的结构规则；如后续要取消，可单独迭代。
+- 空施法惩罚保留：无咏唱 Cast 不入缓冲，但须在音轨留**黑色施法痕**；该黑痕是短效反馈 Marker，自销毁时间等于本次输入无效时间（`EmptyCastPenaltySeconds`，约半拍），约半拍内仍 `InputRejected`（见 `Assets/Docs/第4轮魔法完整补完plan.md` 小步 2 补丁）。
 
 ### 小步 3：魔法配方支持半拍和 1/4 拍
 
@@ -228,7 +228,7 @@ flowchart TD
 - F：`QuarterBeat_Test`：`Chant beat=0` + `Cast beat=0.25` 匹配成功。
 - G：超出容差：`QuarterBeat_Test` 的 Cast 输入偏离超过 `matchToleranceBeats`，匹配失败但不是因为 `Miss` 打断。
 - H：队首生命周期：首个输入在 `beatFloat=0.25`，底层当前节拍推进到 `4.24` 时不清，推进到 `4.25` 或之后清空缓存和 Marker；白点 UI 仍只在四顶点跳动。
-- I：空施法半拍封锁仍有效：无咏唱直接 Cast 后封锁内输入不入队；封锁结束后任意时刻可重新咏唱。
+- I：无咏唱 Cast → 半拍封锁 + 音轨 1 个短效黑色 Cast 留痕，缓冲为 0；封锁内不再增 Marker；推进到 `EmptyCastPenaltySeconds` 后该短效 Marker 自动销毁，封锁结束后可重新输入。
 
 ## Unity 项目落地方式
 

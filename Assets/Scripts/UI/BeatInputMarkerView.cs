@@ -9,10 +9,16 @@ namespace BeatSpell.UI
 {
     /// <summary>
     /// 第 4 轮：按输入时刻在菱形轨迹上连续留痕。不吸附四顶点。
-    /// Weak 与 Perfect/Good 一样留痕；新一轮咏唱会先清掉上一轮残留。
+    /// 队列 Marker 走队首一圈生命周期；空施法黑色痕为短效 Marker，寿命等于封锁时长。
     /// </summary>
     public class BeatInputMarkerView : MonoBehaviour
     {
+        private struct TransientMarker
+        {
+            public Image image;
+            public double expireDspTime;
+        }
+
         [SerializeField] private RhythmPrototypeBootstrap bootstrap;
         [SerializeField] private DiamondBeatTrackView trackView;
         [SerializeField] private RectTransform markerRoot;
@@ -21,10 +27,13 @@ namespace BeatSpell.UI
 
         private SpellInputBuffer buffer;
         private readonly List<Image> spawnedMarkers = new List<Image>(8);
+        private readonly List<TransientMarker> transients = new List<TransientMarker>(4);
         private bool hasVisualLifecycle;
         private double visualStartDspTime;
 
-        public int MarkerCount => spawnedMarkers.Count;
+        public int QueueMarkerCount => spawnedMarkers.Count;
+        public int TransientMarkerCount => transients.Count;
+        public int MarkerCount => spawnedMarkers.Count + transients.Count;
         public Vector2 LastMarkerPosition { get; private set; }
         public string LastMarkerKind { get; private set; } = string.Empty;
 
@@ -48,12 +57,14 @@ namespace BeatSpell.UI
 
         private void Update()
         {
+            double dspNow = AudioSettings.dspTime;
+            ExpireTransientIfNeeded(dspNow);
             if (!hasVisualLifecycle || bootstrap == null || bootstrap.Clock == null)
             {
                 return;
             }
 
-            ExpireIfNeeded(AudioSettings.dspTime, bootstrap.ChantLifetimeSeconds);
+            ExpireIfNeeded(dspNow, bootstrap.ChantLifetimeSeconds);
         }
 
         private void OnDisable()
@@ -77,10 +88,14 @@ namespace BeatSpell.UI
             }
 
             spawnedMarkers.Clear();
-            LastMarkerKind = string.Empty;
-            LastMarkerPosition = Vector2.zero;
             hasVisualLifecycle = false;
             visualStartDspTime = 0d;
+            if (transients.Count == 0)
+            {
+                LastMarkerKind = string.Empty;
+                LastMarkerPosition = Vector2.zero;
+            }
+
             Debug.Log("[Track] MarkersCleared");
         }
 
@@ -105,6 +120,62 @@ namespace BeatSpell.UI
         public Vector2 ShowMarkerForTest(float beatFloat, BeatInputType type)
         {
             return SpawnMarker(beatFloat, type);
+        }
+
+        /// <summary>
+        /// 空施法短效黑色 Cast 痕：不入队列、不走一圈生命周期，到期按 dsp 自销毁。
+        /// </summary>
+        public void ShowTransientCastMarker(BeatTimingInfo timing, float lifeSeconds)
+        {
+            Image image = CreateMarkerImage(timing.BeatFloat, BeatInputType.Cast);
+            if (image == null)
+            {
+                return;
+            }
+
+            transients.Add(new TransientMarker
+            {
+                image = image,
+                expireDspTime = timing.DspTime + Mathf.Max(0f, lifeSeconds)
+            });
+            Debug.Log($"[Track] TransientCast beatFloat={timing.BeatFloat:0.##} life={lifeSeconds:0.###}s");
+        }
+
+        public void ExpireTransientIfNeeded(double dspNow)
+        {
+            bool anyExpired = false;
+            for (int i = transients.Count - 1; i >= 0; i--)
+            {
+                if (dspNow < transients[i].expireDspTime)
+                {
+                    continue;
+                }
+
+                DestroyMarkerImage(transients[i].image);
+                transients.RemoveAt(i);
+                anyExpired = true;
+            }
+
+            if (anyExpired)
+            {
+                Debug.Log("[Track] TransientCastCleared");
+            }
+        }
+
+        public void ClearTransientMarkers()
+        {
+            if (transients.Count == 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < transients.Count; i++)
+            {
+                DestroyMarkerImage(transients[i].image);
+            }
+
+            transients.Clear();
+            Debug.Log("[Track] TransientCastCleared");
         }
 
         private void Subscribe()
@@ -163,15 +234,28 @@ namespace BeatSpell.UI
 
         private Vector2 SpawnMarker(float beatFloat, BeatInputType type)
         {
+            Image image = CreateMarkerImage(beatFloat, type);
+            if (image == null)
+            {
+                return Vector2.zero;
+            }
+
+            spawnedMarkers.Add(image);
+            return image.rectTransform.anchoredPosition;
+        }
+
+        private Image CreateMarkerImage(float beatFloat, BeatInputType type)
+        {
             CacheRefs();
             if (markerRoot == null || trackView == null)
             {
                 Debug.LogWarning("[Track] MarkerRoot 或 TrackView 缺失，无法留痕。");
-                return Vector2.zero;
+                return null;
             }
 
             Vector2 pos = trackView.GetPositionOnTrack(beatFloat);
-            var go = new GameObject(type == BeatInputType.Cast ? "CastMarker" : "ChantMarker", typeof(RectTransform), typeof(Image));
+            string name = type == BeatInputType.Cast ? "CastMarker" : "ChantMarker";
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image));
             go.transform.SetParent(markerRoot, false);
 
             RectTransform rect = go.GetComponent<RectTransform>();
@@ -187,11 +271,18 @@ namespace BeatSpell.UI
             image.raycastTarget = false;
             image.preserveAspect = true;
 
-            spawnedMarkers.Add(image);
             LastMarkerPosition = pos;
             LastMarkerKind = type.ToString();
             Debug.Log($"[Track] Marker {type} beatFloat={beatFloat:0.##} pos=({pos.x:0},{pos.y:0})");
-            return pos;
+            return image;
+        }
+
+        private static void DestroyMarkerImage(Image image)
+        {
+            if (image != null)
+            {
+                Destroy(image.gameObject);
+            }
         }
 
         private float ResolveSecondsPerBeat()

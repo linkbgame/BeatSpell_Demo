@@ -44,6 +44,8 @@ namespace BeatSpell.Prototype
         public int BufferCount => spellInputBuffer != null ? spellInputBuffer.Count : 0;
         public bool HasActiveChantLifecycle => spellInputBuffer != null && spellInputBuffer.HasActiveChantLifecycle;
         public int MarkerCount => markerView != null ? markerView.MarkerCount : 0;
+        public int QueueMarkerCount => markerView != null ? markerView.QueueMarkerCount : 0;
+        public int TransientMarkerCount => markerView != null ? markerView.TransientMarkerCount : 0;
         public string LastSpellLog => spellCaster != null ? spellCaster.LastSpellLog : string.Empty;
         public float ChantLifetimeSeconds => chantLifetimeBeats * ResolveSecondsPerBeat();
         public float EmptyCastPenaltySeconds => emptyCastPenaltyBeats * ResolveSecondsPerBeat();
@@ -156,6 +158,7 @@ namespace BeatSpell.Prototype
             if (markerView != null)
             {
                 markerView.ClearMarkers();
+                markerView.ClearTransientMarkers();
             }
 
             if (spellCaster != null)
@@ -210,16 +213,22 @@ namespace BeatSpell.Prototype
 
             if (type == BeatInputType.Cast && (spellInputBuffer == null || !spellInputBuffer.HasActiveChantLifecycle))
             {
+                BeatTimingGrade emptyCastGrade = rhythmJudge.Evaluate(timing.DeltaMs);
+                LogBeatInput(type, emptyCastGrade, timing);
+                if (inputController != null)
+                {
+                    inputController.RaiseRhythmInput(type, emptyCastGrade, timing.DeltaMs, timing.BeatIndex);
+                }
+
+                markerView?.ShowTransientCastMarker(timing, EmptyCastPenaltySeconds);
                 blockedUntilDspTime = timing.DspTime + EmptyCastPenaltySeconds;
                 queryDspTime = timing.DspTime;
                 spellCaster?.LogEmptyCastPenalty();
-                return BeatTimingGrade.Miss;
+                return emptyCastGrade;
             }
 
             BeatTimingGrade grade = rhythmJudge.Evaluate(timing.DeltaMs);
-            string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
-            Debug.Log(
-                $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
+            LogBeatInput(type, grade, timing);
 
             if (inputController != null)
             {
@@ -232,6 +241,13 @@ namespace BeatSpell.Prototype
             }
 
             return grade;
+        }
+
+        private void LogBeatInput(BeatInputType type, BeatTimingGrade grade, BeatTimingInfo timing)
+        {
+            string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
+            Debug.Log(
+                $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
         }
 
         private bool EvaluateLifecycle(double dspNow)
@@ -247,6 +263,7 @@ namespace BeatSpell.Prototype
             if (markerView != null)
             {
                 markerView.ExpireIfNeeded(dspNow, ChantLifetimeSeconds);
+                markerView.ExpireTransientIfNeeded(dspNow);
             }
 
             return expired;

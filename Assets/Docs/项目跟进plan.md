@@ -32,7 +32,7 @@ isProject: false
 - `Miss` 会立刻打断当前咏唱，清空输入序列，本次魔法失败。
 - 玩家先进行若干次咏唱，最后通过施法键结束序列并尝试释放魔法。
 - 咏唱序列从首个有效输入起拥有一圈音轨生命周期（默认 4 拍，任意起点），期满清空缓冲与音轨留痕。
-- 无咏唱时直接施法：惩罚约半拍输入封锁，期间咏唱/施法都不判定、不入缓冲、不留痕。
+- 无咏唱时直接施法：惩罚约半拍输入封锁，期间输入 `InputRejected`、不入缓冲；**但这一次 Cast 须在音轨留黑色施法痕**（第 4 轮完整补完 plan 小步 2 补丁，代码待落地）。
 - 魔法识别推荐使用“输入类型序列 + 输入间隔拍数”，而不是依赖菱形 UI 的绝对顶点。
 - 菱形音轨只是 UI 可视化辅助：四个顶点依次显示当前完美节拍点，输入判定不依赖 UI 本身。
 - 敌人也跟随 BPM 行动，例如提前若干拍播放攻击预警，在指定节拍点执行攻击。
@@ -250,4 +250,10 @@ flowchart TD
   - B：`Chant 0/200ms` → `Weak`，`BufferCount=1`，无 `ChantBroken`，1 个 Marker
   - I：空 `Cast` → `EmptyCastPenalty`；封锁内 `Chant` → `InputRejected`，缓冲 0
   - 回归：`Chant 0 + Cast 1` → `Matched`，20→10
-- **状态**：小步 2 **completed**。`SpellMatcher` 仍把 Miss/Weak 当伤害 0，留给小步 4。下一步：小步 3 小数拍配方匹配。
+- **状态**：小步 2 **completed**（准确度不打断）。`SpellMatcher` 仍把 Weak 当伤害 0，留给小步 4。
+- **小步 2 补丁（空施法黑色留痕 + 短效自销毁）**：
+  - `RhythmPrototypeBootstrap`：空 Cast → `[Beat]` → `ShowTransientCastMarker(timing, EmptyCastPenaltySeconds)` → `EmptyCastPenalty` + 半拍封锁，不 `TryAppend`
+  - `BeatInputMarkerView`：队列 Marker 与短效 Marker 分列表；`ExpireTransientIfNeeded` 按 dsp 到期销毁
+  - 查询：`QueueMarkerCount` / `TransientMarkerCount`
+  - MCP：B Weak 入队 queue=1 transient=0；Ia 空 Cast transient=1 queue=0；Ib 封锁内不增 Marker；Ic 推进 `EmptyCastPenaltySeconds` 后 transient=0；火焰回归 Matched 20→10
+  - **状态**：completed。下一步：小步 3 小数拍配方匹配。
