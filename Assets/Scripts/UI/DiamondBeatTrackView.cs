@@ -168,13 +168,6 @@ namespace BeatSpell.UI
         {
             // 0=TopRight, 1=BottomRight, 2=BottomLeft, 3=TopLeft
             float[] angles = { -45f, 45f, -45f, 45f };
-            Vector2[] outwardNormals =
-            {
-                new Vector2(1f, 1f).normalized,
-                new Vector2(1f, -1f).normalized,
-                new Vector2(-1f, -1f).normalized,
-                new Vector2(-1f, 1f).normalized
-            };
 
             for (int i = 0; i < 4; i++)
             {
@@ -183,13 +176,7 @@ namespace BeatSpell.UI
                     continue;
                 }
 
-                Vector2 a = vertices[i];
-                Vector2 b = vertices[(i + 1) % 4];
-                Vector2 mid = (a + b) * 0.5f;
-                if (topEdgeOutwardOffset > 0f && (i == 0 || i == 3))
-                {
-                    mid += outwardNormals[i] * topEdgeOutwardOffset;
-                }
+                Vector2 mid = GetEdgeCenter(vertices, i);
 
                 edgeRects[i].anchoredPosition = mid;
                 edgeRects[i].localEulerAngles = new Vector3(0f, 0f, angles[i]);
@@ -248,10 +235,35 @@ namespace BeatSpell.UI
                     continue;
                 }
 
-                Vector2 a = vertices[i];
-                Vector2 b = vertices[(i + 1) % 4];
-                midpointRects[i].anchoredPosition = (a + b) * 0.5f;
+                midpointRects[i].anchoredPosition = GetEdgeCenter(vertices, i);
                 midpointRects[i].sizeDelta = new Vector2(size, size);
+            }
+        }
+
+        /// <summary>
+        /// 边条与中点共用：几何中点 + 上两条边外法线偏移（与 PlaceEdges 一致）。
+        /// </summary>
+        private Vector2 GetEdgeCenter(Vector2[] vertices, int edgeIndex)
+        {
+            Vector2 a = vertices[edgeIndex];
+            Vector2 b = vertices[(edgeIndex + 1) % 4];
+            Vector2 mid = (a + b) * 0.5f;
+            if (topEdgeOutwardOffset > 0f && (edgeIndex == 0 || edgeIndex == 3))
+            {
+                mid += GetEdgeOutwardNormal(edgeIndex) * topEdgeOutwardOffset;
+            }
+
+            return mid;
+        }
+
+        private static Vector2 GetEdgeOutwardNormal(int edgeIndex)
+        {
+            switch (edgeIndex)
+            {
+                case 0: return new Vector2(1f, 1f).normalized;
+                case 1: return new Vector2(1f, -1f).normalized;
+                case 2: return new Vector2(-1f, -1f).normalized;
+                default: return new Vector2(-1f, 1f).normalized;
             }
         }
 

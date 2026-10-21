@@ -612,6 +612,10 @@ PrefabInstance:
       propertyPath: bootstrap
       value: 
       objectReference: {fileID: 404296583}
+    - target: {fileID: 2457603544159142075, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 200
+      objectReference: {fileID: 0}
     - target: {fileID: 3550637836044184281, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Enabled
       value: 1

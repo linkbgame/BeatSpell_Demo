@@ -193,4 +193,5 @@ flowchart TD
   - Prefab：四 `BeatPulse` 默认 Inactive、Image 全 Enabled（若已在 Inspector 改过则与代码一致）
 - 根因：仅 Top 的 `BeatPulse` Image 为 Enabled 且默认 Active；`SetActive(true)` 不会恢复曾被禁用的 Image，故白点看似只在上顶点。
 - MCP 验收：Play 后用例 A（`IsBeatPulseActive` 与 `VertexIndex` 一致、同一时刻仅一真）；目视上峰两蓝边朝外。前缀 `[Track]` / `[Beat]`。
+- 跟进：`PlaceMidpoints` 与 `PlaceEdges` 共用 `GetEdgeCenter`，`Mid_TopRight` / `Mid_TopLeft` 随 `topEdgeOutwardOffset` 落在上两条边视觉中点。
 - todo：`implement-beat-ui` 仍 pending。
