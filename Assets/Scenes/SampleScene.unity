@@ -612,6 +612,10 @@ PrefabInstance:
       propertyPath: bootstrap
       value: 
       objectReference: {fileID: 404296583}
+    - target: {fileID: 3550637836044184281, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4185319971838797256, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Name
       value: DiamondBeatTrack
@@ -624,6 +628,10 @@ PrefabInstance:
       propertyPath: m_Sprite
       value: 
       objectReference: {fileID: 21300000, guid: af7c4e25c2930034fb46da7bd122a2fb, type: 3}
+    - target: {fileID: 6175179557205079651, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8451468210017656206, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Pivot.x
       value: 0.5
@@ -703,6 +711,10 @@ PrefabInstance:
     - target: {fileID: 8451468210017656206, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8767812326301358927, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Enabled
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
