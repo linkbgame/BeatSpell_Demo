@@ -208,6 +208,9 @@ MonoBehaviour:
   spellCatalog:
   - {fileID: 11400000, guid: fcb6e6d1fc138224bb7f95fcfe26da6b, type: 2}
   battleGameManager: {fileID: 404296589}
+  markerView: {fileID: 0}
+  chantLifetimeBeats: 4
+  emptyCastPenaltyBeats: 0.5
 --- !u!114 &404296584
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -239,7 +242,7 @@ MonoBehaviour:
   audioSource: {fileID: 404296586}
   autoStartWithoutClip: 1
   dspOffsetMs: 0
-  logBeatTicks: 1
+  logBeatTicks: 0
 --- !u!82 &404296586
 AudioSource:
   m_ObjectHideFlags: 0

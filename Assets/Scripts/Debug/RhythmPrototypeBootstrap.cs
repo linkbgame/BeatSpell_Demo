@@ -9,7 +9,7 @@ using UnityEngine;
 namespace BeatSpell.Prototype
 {
     /// <summary>
-    /// 场景入口：节拍判定 + 咏唱缓冲 + 火焰魔法匹配 + 第 3 轮战斗结算查询。
+    /// 场景入口：节拍判定 + 咏唱生命周期 + 空施法封锁 + 火焰魔法匹配 + 战斗结算查询。
     /// </summary>
     public class RhythmPrototypeBootstrap : MonoBehaviour
     {
@@ -20,6 +20,12 @@ namespace BeatSpell.Prototype
         [SerializeField] private SpellCaster spellCaster;
         [SerializeField] private SpellDefinition[] spellCatalog;
         [SerializeField] private BattleGameManager battleGameManager;
+        [SerializeField] private BeatInputMarkerView markerView;
+        [SerializeField] private float chantLifetimeBeats = 4f;
+        [SerializeField] private float emptyCastPenaltyBeats = 0.5f;
+
+        private double blockedUntilDspTime;
+        private double queryDspTime;
 
         public BeatClock Clock => beatClock;
         public RhythmJudge Judge => rhythmJudge;
@@ -32,10 +38,27 @@ namespace BeatSpell.Prototype
         public int EnemyCurrentHealth => battleGameManager != null ? battleGameManager.EnemyCurrentHealth : 0;
         public bool IsEnemyDead => battleGameManager != null && battleGameManager.IsEnemyDead;
         public bool IsVictory => battleGameManager != null && battleGameManager.IsVictory;
+        public bool IsInputBlocked => queryDspTime < blockedUntilDspTime;
+        public int BufferCount => spellInputBuffer != null ? spellInputBuffer.Count : 0;
+        public bool HasActiveChantLifecycle => spellInputBuffer != null && spellInputBuffer.HasActiveChantLifecycle;
+        public int MarkerCount => markerView != null ? markerView.MarkerCount : 0;
+        public string LastSpellLog => spellCaster != null ? spellCaster.LastSpellLog : string.Empty;
+        public float ChantLifetimeSeconds => chantLifetimeBeats * ResolveSecondsPerBeat();
+        public float EmptyCastPenaltySeconds => emptyCastPenaltyBeats * ResolveSecondsPerBeat();
 
         private void Awake()
         {
             CacheRefs();
+        }
+
+        private void Update()
+        {
+            if (beatClock == null || !beatClock.IsRunning)
+            {
+                return;
+            }
+
+            EvaluateLifecycle(AudioSettings.dspTime);
         }
 
         public void ProcessLiveInput(BeatInputType type)
@@ -102,9 +125,17 @@ namespace BeatSpell.Prototype
 
         public void ResetCombat()
         {
+            blockedUntilDspTime = 0d;
+            queryDspTime = 0d;
+
             if (spellInputBuffer != null)
             {
                 spellInputBuffer.Clear();
+            }
+
+            if (markerView != null)
+            {
+                markerView.ClearMarkers();
             }
 
             if (spellCaster != null)
@@ -116,6 +147,25 @@ namespace BeatSpell.Prototype
             {
                 battleGameManager.ResetBattle();
             }
+        }
+
+        /// <summary>
+        /// MCP：把生命周期推进到指定拍，不产生新输入。过期时打 [Spell] ChantExpired。
+        /// </summary>
+        public bool EvaluateLifecycleAtBeat(int beatIndex, float offsetMs)
+        {
+            if (beatClock == null)
+            {
+                return false;
+            }
+
+            if (!beatClock.IsRunning)
+            {
+                beatClock.StartClock();
+            }
+
+            BeatTimingInfo timing = beatClock.GetTimingForBeatIndex(beatIndex, offsetMs);
+            return EvaluateLifecycle(timing.DspTime);
         }
 
         public void SetGoodWindowMs(float goodWindowMs)
@@ -130,6 +180,22 @@ namespace BeatSpell.Prototype
 
         private BeatTimingGrade ProcessInput(BeatInputType type, BeatTimingInfo timing)
         {
+            EvaluateLifecycle(timing.DspTime);
+
+            if (timing.DspTime < blockedUntilDspTime)
+            {
+                spellCaster?.LogInputRejected();
+                return BeatTimingGrade.Miss;
+            }
+
+            if (type == BeatInputType.Cast && (spellInputBuffer == null || !spellInputBuffer.HasActiveChantLifecycle))
+            {
+                blockedUntilDspTime = timing.DspTime + EmptyCastPenaltySeconds;
+                queryDspTime = timing.DspTime;
+                spellCaster?.LogEmptyCastPenalty();
+                return BeatTimingGrade.Miss;
+            }
+
             BeatTimingGrade grade = rhythmJudge.Evaluate(timing.DeltaMs);
             string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
             Debug.Log(
@@ -146,6 +212,29 @@ namespace BeatSpell.Prototype
             }
 
             return grade;
+        }
+
+        private bool EvaluateLifecycle(double dspNow)
+        {
+            queryDspTime = dspNow;
+            bool expired = spellInputBuffer != null &&
+                           spellInputBuffer.ClearIfExpired(dspNow, ChantLifetimeSeconds);
+            if (expired)
+            {
+                spellCaster?.LogChantExpired();
+            }
+
+            if (markerView != null)
+            {
+                markerView.ExpireIfNeeded(dspNow, ChantLifetimeSeconds);
+            }
+
+            return expired;
+        }
+
+        private float ResolveSecondsPerBeat()
+        {
+            return beatClock != null ? beatClock.SecondsPerBeat : 0.5f;
         }
 
         private void CacheRefs()
@@ -168,6 +257,11 @@ namespace BeatSpell.Prototype
             if (battleGameManager == null)
             {
                 battleGameManager = GetComponent<BattleGameManager>();
+            }
+
+            if (markerView == null)
+            {
+                markerView = FindFirstObjectByType<BeatInputMarkerView>();
             }
 
             if (beatClock != null)

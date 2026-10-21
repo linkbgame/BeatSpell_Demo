@@ -8,7 +8,8 @@ using UnityEngine.UI;
 namespace BeatSpell.UI
 {
     /// <summary>
-    /// 第 4 轮：按输入时刻在菱形轨迹上连续留痕。不吸附四顶点。Miss 不留痕。
+    /// 第 4 轮：按输入时刻在菱形轨迹上连续留痕。不吸附四顶点。
+    /// 首个 Marker 起算一圈后销毁；新一轮咏唱会先清掉上一轮残留。
     /// </summary>
     public class BeatInputMarkerView : MonoBehaviour
     {
@@ -20,6 +21,8 @@ namespace BeatSpell.UI
 
         private SpellInputBuffer buffer;
         private readonly List<Image> spawnedMarkers = new List<Image>(8);
+        private bool hasVisualLifecycle;
+        private double visualStartDspTime;
 
         public int MarkerCount => spawnedMarkers.Count;
         public Vector2 LastMarkerPosition { get; private set; }
@@ -43,6 +46,16 @@ namespace BeatSpell.UI
             Subscribe();
         }
 
+        private void Update()
+        {
+            if (!hasVisualLifecycle || bootstrap == null || bootstrap.Clock == null)
+            {
+                return;
+            }
+
+            ExpireIfNeeded(AudioSettings.dspTime, bootstrap.ChantLifetimeSeconds);
+        }
+
         private void OnDisable()
         {
             Unsubscribe();
@@ -50,6 +63,11 @@ namespace BeatSpell.UI
 
         public void ClearMarkers()
         {
+            if (spawnedMarkers.Count == 0 && !hasVisualLifecycle)
+            {
+                return;
+            }
+
             for (int i = 0; i < spawnedMarkers.Count; i++)
             {
                 if (spawnedMarkers[i] != null)
@@ -61,7 +79,27 @@ namespace BeatSpell.UI
             spawnedMarkers.Clear();
             LastMarkerKind = string.Empty;
             LastMarkerPosition = Vector2.zero;
+            hasVisualLifecycle = false;
+            visualStartDspTime = 0d;
             Debug.Log("[Track] MarkersCleared");
+        }
+
+        /// <summary>
+        /// 从首个 Marker 的 dsp 起算，满一圈后销毁留痕。匹配成功后缓冲可能已空，仍靠这里清 UI。
+        /// </summary>
+        public void ExpireIfNeeded(double dspNow, float lifecycleSeconds)
+        {
+            if (!hasVisualLifecycle || spawnedMarkers.Count == 0 || lifecycleSeconds <= 0f)
+            {
+                return;
+            }
+
+            if (dspNow < visualStartDspTime + lifecycleSeconds)
+            {
+                return;
+            }
+
+            ClearMarkers();
         }
 
         public Vector2 ShowMarkerForTest(float beatFloat, BeatInputType type)
@@ -102,6 +140,20 @@ namespace BeatSpell.UI
 
         private void HandleEntryAdded(RhythmInputEntry entry)
         {
+            bool newChantRound = buffer != null &&
+                                 buffer.Count <= 1 &&
+                                 entry.Grade != BeatTimingGrade.Miss;
+            if (newChantRound && spawnedMarkers.Count > 0)
+            {
+                ClearMarkers();
+            }
+
+            if (!hasVisualLifecycle)
+            {
+                hasVisualLifecycle = true;
+                visualStartDspTime = entry.DspTime;
+            }
+
             float beatFloat = entry.BeatIndex + entry.DeltaMs / (1000f * ResolveSecondsPerBeat());
             SpawnMarker(beatFloat, entry.InputType);
         }

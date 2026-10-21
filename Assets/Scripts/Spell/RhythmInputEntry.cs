@@ -13,6 +13,7 @@ namespace BeatSpell.Spell
         public readonly int VertexIndex;
         public readonly float DeltaMs;
         public readonly int IntervalBeatsFromPrevious;
+        public readonly double DspTime;
 
         public RhythmInputEntry(
             BeatInputType inputType,
@@ -20,7 +21,8 @@ namespace BeatSpell.Spell
             int beatIndex,
             int vertexIndex,
             float deltaMs,
-            int intervalBeatsFromPrevious)
+            int intervalBeatsFromPrevious,
+            double dspTime = 0d)
         {
             InputType = inputType;
             Grade = grade;
@@ -28,6 +30,7 @@ namespace BeatSpell.Spell
             VertexIndex = vertexIndex;
             DeltaMs = deltaMs;
             IntervalBeatsFromPrevious = intervalBeatsFromPrevious;
+            DspTime = dspTime;
         }
     }
 }

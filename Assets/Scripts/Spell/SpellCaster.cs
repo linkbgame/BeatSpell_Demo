@@ -29,6 +29,30 @@ namespace BeatSpell.Spell
             Debug.Log("[Spell] ChantBroken | sequence cleared");
         }
 
+        public void LogChantExpired()
+        {
+            LastMatchedSpell = null;
+            LastDamageFactor = 0f;
+            LastSpellLog = "ChantExpired";
+            Debug.Log("[Spell] ChantExpired | sequence cleared");
+        }
+
+        public void LogEmptyCastPenalty()
+        {
+            LastMatchedSpell = null;
+            LastDamageFactor = 0f;
+            LastSpellLog = "EmptyCastPenalty";
+            Debug.Log("[Spell] EmptyCastPenalty | input locked for half beat");
+        }
+
+        public void LogInputRejected()
+        {
+            LastMatchedSpell = null;
+            LastDamageFactor = 0f;
+            LastSpellLog = "InputRejected";
+            Debug.Log("[Spell] InputRejected | input locked");
+        }
+
         public void LogSequenceInvalid(string reason)
         {
             LastMatchedSpell = null;

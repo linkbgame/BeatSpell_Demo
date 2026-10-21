@@ -31,6 +31,8 @@ isProject: false
 - 每次输入都基于全局 BPM 时间轴判定为 `Perfect`、`Good` 或 `Miss`。
 - `Miss` 会立刻打断当前咏唱，清空输入序列，本次魔法失败。
 - 玩家先进行若干次咏唱，最后通过施法键结束序列并尝试释放魔法。
+- 咏唱序列从首个有效输入起拥有一圈音轨生命周期（默认 4 拍，任意起点），期满清空缓冲与音轨留痕。
+- 无咏唱时直接施法：惩罚约半拍输入封锁，期间咏唱/施法都不判定、不入缓冲、不留痕。
 - 魔法识别推荐使用“输入类型序列 + 输入间隔拍数”，而不是依赖菱形 UI 的绝对顶点。
 - 菱形音轨只是 UI 可视化辅助：四个顶点依次显示当前完美节拍点，输入判定不依赖 UI 本身。
 - 敌人也跟随 BPM 行动，例如提前若干拍播放攻击预警，在指定节拍点执行攻击。
@@ -92,6 +94,7 @@ flowchart TD
   - `SpellMatcher`：在施法时匹配魔法定义。
   - `SpellCaster`：执行伤害、动画和反馈。
   - 第 2 轮实测：`Fireball_Lv1` 为 `Chant → 1拍 → Cast`；MCP 用例 1–5 通过（Matched 1.0 / Matched 0.8 / ChantBroken / MatchFailed / SequenceInvalid）。
+  - 第 4 轮补完：允许多段 Chant；首个有效咏唱的 dsp 起算 `chantLifetimeBeats=4`；空 Cast 触发 `emptyCastPenaltyBeats=0.5` 封锁。MCP 用例 A–G 通过。
 - 玩家系统
   - `PlayerCombatController`：整合输入、咏唱状态、施法结果。
   - `PlayerHealth`：管理玩家生命值。
@@ -107,6 +110,7 @@ flowchart TD
   - `HealthBarView`：玩家和敌人血量显示。
   - `HintTextView`：显示操作提示和判定结果。
   - 第 4 轮实测（重做）：当前拍只读 `BeatClock.VertexIndex`，四顶点整拍跳动。输入留痕用 `beatFloat` 在菱形边上插值，不吸附 4/8 点。`MarkerRoot` 动态生成黄/黑点。匹配成功 `Clear(notify:false)` 保留本序列痕迹；`MatchFailed` / `ResetCombat` 清空。Miss 打断序列后仍在本次按键轨迹位置留一点。血条与侧栏技能菱形未做。
+  - 第 4 轮补完：Marker 从首个留痕起算一圈后 `ClearMarkers`；新一轮咏唱会先清掉上一轮残留。过期前缀 `[Track] MarkersCleared`。
 - 全局系统
   - `BattleGameManager`：控制战斗开始、胜利、失败、暂停。
   - `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Miss 次数。
@@ -195,3 +199,23 @@ flowchart TD
 - MCP 验收：Play 后用例 A（`IsBeatPulseActive` 与 `VertexIndex` 一致、同一时刻仅一真）；目视上峰两蓝边朝外。前缀 `[Track]` / `[Beat]`。
 - 跟进：`PlaceMidpoints` 与 `PlaceEdges` 共用 `GetEdgeCenter`，`Mid_TopRight` / `Mid_TopLeft` 随 `topEdgeOutwardOffset` 落在上两条边视觉中点。
 - todo：`implement-beat-ui` 仍 pending。
+
+## 第 4 轮补完（咏唱生命周期 + 空施法惩罚）
+- 本轮目标：补完魔法输入规则后再进入第 5 轮。咏唱从任意起点转一圈后失效；空施法封锁半拍输入。
+- 改动摘要：
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：生命周期、过期清理、允许多段 Chant
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：空施法半拍封锁、`EvaluateLifecycleAtBeat`、测试查询
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：留痕一圈后销毁，新一轮咏唱清残留
+  - `Assets/Scripts/Spell/SpellCaster.cs`：`EmptyCastPenalty` / `InputRejected` / `ChantExpired`
+  - `Assets/Scripts/Spell/RhythmInputEntry.cs`：记录 `DspTime`
+- MCP 验收：Play 模式 `SimulateStep` 用例 A–G 通过。前缀 `[Beat]` / `[Spell]` / `[Track]`。
+  - A：`Chant 0/0` → `BufferCount=1`，生命周期开启，1 个 Chant Marker
+  - B：`Chant 1/0` 不再 `SequenceInvalid`，`BufferCount=2`
+  - C：`EvaluateLifecycleAtBeat(4,0)` → `[Spell] ChantExpired`，缓冲与 Marker 清空
+  - D：无咏唱 `Cast 0/0` → `[Spell] EmptyCastPenalty`，`IsInputBlocked=true`，无 `[Beat]` 入缓冲
+  - E：封锁内 `Chant 0/100` → `[Spell] InputRejected`，不留痕
+  - F：下一拍 `Chant 1/0` Perfect，重新进入咏唱生命周期
+  - G：`Chant 0 + Cast 1` 仍 `Matched`，血量 20→10；匹配成功后 Marker 保留，一圈后再清（`expiredBuffer=false`，`markers 2→0`）
+- todo：`implement-spell-flow` 保持 completed；第 5 轮敌人节拍攻击仍未开始。
+- Inspector：`RhythmPrototype` 上 `chantLifetimeBeats=4`、`emptyCastPenaltyBeats=0.5`。惩罚手感只调后者，不要改判定窗口。
+- 新问题：半拍封锁结束后，当前拍可能已离开 Perfect/Good 窗口（BPM 120 时 beat0+251ms 是 Miss）。恢复输入应打下一拍，而不是同一拍的大偏移。成功 `Added` 的 Chant 不改 `LastSpellLog`，验收以 `BufferCount` / `HasActiveChantLifecycle` 为准。

@@ -14,24 +14,51 @@ namespace BeatSpell.Spell
     }
 
     /// <summary>
-    /// 咏唱序列缓冲：Miss 打断；多余 Chant 视为非法；Cast 时匹配。
+    /// 咏唱序列缓冲：Miss 打断；首个有效咏唱开启一圈生命周期；Cast 时匹配。
+    /// 允许多段 Chant，由 SpellMatcher 按配方长度与间隔判定，不再把第二段 Chant 视为非法。
     /// </summary>
     [Serializable]
     public class SpellInputBuffer
     {
         private readonly List<RhythmInputEntry> entries = new List<RhythmInputEntry>(8);
+        private bool hasLifecycle;
+        private double lifecycleStartDspTime;
 
         public IReadOnlyList<RhythmInputEntry> Entries => entries;
+        public int Count => entries.Count;
+        public bool HasActiveChantLifecycle => hasLifecycle;
+        public double LifecycleStartDspTime => lifecycleStartDspTime;
         public event Action OnCleared;
         public event Action<RhythmInputEntry> OnEntryAdded;
 
         public void Clear(bool notify = true)
         {
             entries.Clear();
+            hasLifecycle = false;
+            lifecycleStartDspTime = 0d;
             if (notify)
             {
                 OnCleared?.Invoke();
             }
+        }
+
+        /// <summary>
+        /// 从首个有效咏唱的 dsp 起算，满一圈后清空。返回是否发生过期。
+        /// </summary>
+        public bool ClearIfExpired(double dspNow, float lifecycleSeconds)
+        {
+            if (!hasLifecycle || lifecycleSeconds <= 0f)
+            {
+                return false;
+            }
+
+            if (dspNow < lifecycleStartDspTime + lifecycleSeconds)
+            {
+                return false;
+            }
+
+            Clear();
+            return true;
         }
 
         public SpellBufferResult TryAppend(
@@ -51,7 +78,8 @@ namespace BeatSpell.Spell
                     timing.BeatIndex,
                     timing.VertexIndex,
                     timing.DeltaMs,
-                    0));
+                    0,
+                    timing.DspTime));
                 return SpellBufferResult.ChantBroken;
             }
 
@@ -61,11 +89,10 @@ namespace BeatSpell.Spell
                 intervalBeats = timing.BeatIndex - entries[entries.Count - 1].BeatIndex;
             }
 
-            if (type == BeatInputType.Chant && entries.Count > 0)
+            if (!hasLifecycle)
             {
-                Clear();
-                caster?.LogSequenceInvalid("extra Chant before Cast");
-                return SpellBufferResult.SequenceInvalid;
+                hasLifecycle = true;
+                lifecycleStartDspTime = timing.DspTime;
             }
 
             RhythmInputEntry entry = new RhythmInputEntry(
@@ -74,7 +101,8 @@ namespace BeatSpell.Spell
                 timing.BeatIndex,
                 timing.VertexIndex,
                 timing.DeltaMs,
-                intervalBeats);
+                intervalBeats,
+                timing.DspTime);
             entries.Add(entry);
             OnEntryAdded?.Invoke(entry);
 
