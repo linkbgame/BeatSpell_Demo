@@ -1,0 +1,30 @@
+---
+description: BeatSpell 开发文档引用与每轮迭代后更新项目跟进 plan
+alwaysApply: true
+---
+
+# BeatSpell 文档与迭代记录
+
+## 必读文档（开发前对齐）
+
+1. **主计划**：`.cursor/plans/beatspell_原型系统_7b571e70.plan.md` — 玩法规则、系统拆分、实现顺序与 todo。
+2. **跟进文档**：`Assets/Docs/项目跟进plan.md` — 与主计划同步的落地版；含 MCP 验收规范、实测记录、迭代节奏。
+
+开始任何 BeatSpell 功能开发前，先阅读上述文档中与当前轮次相关的章节；实现方式须符合「Plan 开发与验收规范（必守）」。
+
+## 每轮迭代结束必做
+
+完成一轮开发（或用户明确结束本轮）后，**必须**把本轮内容写入 `Assets/Docs/项目跟进plan.md`，至少包括：
+
+- 本轮目标（一句话）
+- 改动摘要（脚本/场景/资源路径）
+- MCP 验收结果（用例与 Console 前缀如 `[Beat]` / `[Spell]`）
+- 将对应 todo 的 `status` 更新为 `completed` / `pending`（与 frontmatter 一致）
+- 新发现的问题或参数调整，写到对应系统小节下
+
+不要把迭代结论只留在聊天里；以 `项目跟进plan.md` 为项目真源。
+
+## 分工提醒
+
+- 核心 C# 逻辑手写；UnityMCP 用于 Editor/Play 验收与场景辅助，不替代玩法代码。
+- 标记 todo 完成前须 MCP 用例通过（见跟进文档中的验收表）。
