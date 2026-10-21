@@ -3,6 +3,7 @@ using BeatSpell.Combat;
 using BeatSpell.Rhythm;
 using BeatSpell.RhythmInput;
 using BeatSpell.Spell;
+using BeatSpell.UI;
 using UnityEngine;
 
 namespace BeatSpell.Prototype
@@ -167,6 +168,15 @@ namespace BeatSpell.Prototype
             if (battleGameManager == null)
             {
                 battleGameManager = GetComponent<BattleGameManager>();
+            }
+
+            if (beatClock != null)
+            {
+                DiamondBeatTrackView trackView = FindFirstObjectByType<DiamondBeatTrackView>();
+                if (trackView != null)
+                {
+                    trackView.BindClock(beatClock);
+                }
             }
         }
     }

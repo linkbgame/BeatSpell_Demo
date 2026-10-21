@@ -184,3 +184,13 @@ flowchart TD
 - MCP 验收：时钟运行中 `VertexIndex` 会变。用例 A 白点 0→1→2→3；B `Chant 0/0` 落 Top (0,360)；C `Chant 0/250` 落 Top→Right 中点 (180,180) 且 `ChantBroken`；D `Chant 0/0 + Cast 1/0` 两痕、末点 Right、`Matched`；E Miss 留本次一点；F `MatchFailed` 后 MarkerRoot 清空。前缀 `[Track]` / `[Beat]` / `[Spell]`。
 - todo：`implement-beat-ui` 保持 pending（血条、Hint、侧栏技能菱形未做）。
 - 新问题：半拍按键（BPM 120 约 +250ms）判定为 Miss，但 UI 仍画在边上；不要把边坐标写回匹配。
+
+## 第 4 轮补丁（当前拍白点 + 上侧边朝向）
+- 本轮目标：白点随 `VertexIndex` 在 Top→Right→Bottom→Left 四顶点跳动；上两条边 `track_edge` 亮蓝边朝菱形外侧。
+- 改动摘要：
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：`ResetBeatPulseVisuals`、缓存 `beatPulseImages`、`SetBeatVertex` 强制启用 Image；`PlaceEdges` 对 index 0/3 设 `localScale.y = -1`；`Start`/`BindClock` 刷新顶点
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：`CacheRefs` 内 `DiamondBeatTrackView.BindClock(beatClock)`
+  - Prefab：四 `BeatPulse` 默认 Inactive、Image 全 Enabled（若已在 Inspector 改过则与代码一致）
+- 根因：仅 Top 的 `BeatPulse` Image 为 Enabled 且默认 Active；`SetActive(true)` 不会恢复曾被禁用的 Image，故白点看似只在上顶点。
+- MCP 验收：Play 后用例 A（`IsBeatPulseActive` 与 `VertexIndex` 一致、同一时刻仅一真）；目视上峰两蓝边朝外。前缀 `[Track]` / `[Beat]`。
+- todo：`implement-beat-ui` 仍 pending。

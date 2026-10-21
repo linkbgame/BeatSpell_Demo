@@ -22,6 +22,7 @@ namespace BeatSpell.UI
         private int lastVertexIndex = -1;
         private Vector2[] cachedVertices = new Vector2[4];
         private float cachedVertexSize;
+        private Image[] beatPulseImages;
 
         public int ActiveBeatVertex { get; private set; }
         public float DiamondRadius => diamondRadius;
@@ -30,12 +31,23 @@ namespace BeatSpell.UI
         public void BindClock(BeatClock clock)
         {
             beatClock = clock;
+            lastVertexIndex = -1;
+            RefreshBeatVertexIfRunning();
         }
 
         private void Awake()
         {
+            CacheBeatPulseImages();
             CacheBeatClock();
             ApplyLayout();
+            ResetBeatPulseVisuals();
+        }
+
+        private void Start()
+        {
+            CacheBeatClock();
+            lastVertexIndex = -1;
+            RefreshBeatVertexIfRunning();
         }
 
         private void OnEnable()
@@ -71,9 +83,16 @@ namespace BeatSpell.UI
             ActiveBeatVertex = next;
             for (int i = 0; i < beatPulses.Length; i++)
             {
-                if (beatPulses[i] != null)
+                if (beatPulses[i] == null)
                 {
-                    beatPulses[i].SetActive(i == next);
+                    continue;
+                }
+
+                bool on = i == next;
+                beatPulses[i].SetActive(on);
+                if (on && beatPulseImages != null && i < beatPulseImages.Length && beatPulseImages[i] != null)
+                {
+                    beatPulseImages[i].enabled = true;
                 }
             }
 
@@ -175,6 +194,48 @@ namespace BeatSpell.UI
                 edgeRects[i].anchoredPosition = mid;
                 edgeRects[i].localEulerAngles = new Vector3(0f, 0f, angles[i]);
                 edgeRects[i].sizeDelta = new Vector2(side, thickness);
+                // track_edge 亮边在条带一侧；上两条边镜像 local Y，使蓝边朝菱形外侧。
+                bool flipOutward = i == 0 || i == 3;
+                edgeRects[i].localScale = flipOutward ? new Vector3(1f, -1f, 1f) : Vector3.one;
+            }
+        }
+
+        private void CacheBeatPulseImages()
+        {
+            if (beatPulseImages != null && beatPulseImages.Length == beatPulses.Length)
+            {
+                return;
+            }
+
+            beatPulseImages = new Image[beatPulses.Length];
+            for (int i = 0; i < beatPulses.Length; i++)
+            {
+                if (beatPulses[i] != null)
+                {
+                    beatPulseImages[i] = beatPulses[i].GetComponent<Image>();
+                }
+            }
+        }
+
+        private void ResetBeatPulseVisuals()
+        {
+            CacheBeatPulseImages();
+            for (int i = 0; i < beatPulses.Length; i++)
+            {
+                if (beatPulses[i] != null)
+                {
+                    beatPulses[i].SetActive(false);
+                }
+            }
+
+            lastVertexIndex = -1;
+        }
+
+        private void RefreshBeatVertexIfRunning()
+        {
+            if (beatClock != null && beatClock.IsRunning)
+            {
+                SetBeatVertex(beatClock.VertexIndex);
             }
         }
 
