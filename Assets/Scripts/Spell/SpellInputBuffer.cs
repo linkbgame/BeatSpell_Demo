@@ -45,6 +45,13 @@ namespace BeatSpell.Spell
             {
                 Clear();
                 caster?.LogChantBroken();
+                OnEntryAdded?.Invoke(new RhythmInputEntry(
+                    type,
+                    grade,
+                    timing.BeatIndex,
+                    timing.VertexIndex,
+                    timing.DeltaMs,
+                    0));
                 return SpellBufferResult.ChantBroken;
             }
 

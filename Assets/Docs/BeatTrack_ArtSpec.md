@@ -32,6 +32,12 @@
 
 顶点坐标：`(0, r)`, `(r, 0)`, `(0, -r)`, `(-r, 0)`。边中点为相邻顶点中点。
 
+## 第 4 轮呈现规则
+
+- **当前拍**：只在四个顶点离散跳动（`VertexIndex = beatIndex % 4`），不在边中点显示白点。
+- **输入留痕**：`beatFloat = beatIndex + deltaMs / (1000 * secondsPerBeat)`，再对 4 取模后在相邻顶点间 `Lerp`。不吸附 4/8 个预设槽。
+- 示例（半径 360，BPM 120）：`0/0ms` → Top `(0,360)`；`0/+250ms` → Top→Right 中点 `(180,180)`；`1/0ms` → Right `(360,0)`。
+
 ## Sprite 清单
 
 目录：`Assets/Art/UI/BeatTrack/Sprites/`  

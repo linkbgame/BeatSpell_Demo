@@ -92,7 +92,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &3477553237097488125
 RectTransform:
   m_ObjectHideFlags: 0
@@ -242,7 +242,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2867381878289340733
 RectTransform:
   m_ObjectHideFlags: 0
@@ -711,7 +711,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: -180, y: 180}
+  m_AnchoredPosition: {x: -192.72792, y: 192.72792}
   m_SizeDelta: {x: 509.11688, y: 25.455845}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &7637809682309778429
@@ -1125,6 +1125,7 @@ RectTransform:
   - {fileID: 7069578171530463887}
   - {fileID: 2256318218457050764}
   - {fileID: 709270734067531537}
+  - {fileID: 4931966536411603235}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
@@ -1146,6 +1147,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.UI.DiamondBeatTrackView
   beatClock: {fileID: 0}
   diamondRadius: 360
+  topEdgeOutwardOffset: 18
   glowRect: {fileID: 8287676512101132499}
   edgeRects:
   - {fileID: 6772229473244138065}
@@ -1180,11 +1182,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.UI.BeatInputMarkerView
   bootstrap: {fileID: 0}
-  markerImages:
-  - {fileID: 2328613619387796857}
-  - {fileID: 5562268525925619664}
-  - {fileID: 3037625984197778891}
-  - {fileID: 5922517750900469070}
+  trackView: {fileID: 4318865478364209429}
+  markerRoot: {fileID: 4931966536411603235}
   chantSprite: {fileID: 21300000, guid: 2ecd615a35b53f9488d774ca7ec42eee, type: 3}
   castSprite: {fileID: 21300000, guid: af7c4e25c2930034fb46da7bd122a2fb, type: 3}
 --- !u!1 &4875783030764711403
@@ -1221,7 +1220,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 180, y: 180}
+  m_AnchoredPosition: {x: 192.72792, y: 192.72792}
   m_SizeDelta: {x: 509.11688, y: 25.455845}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3136927747989806917
@@ -1279,7 +1278,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &7944625445120816896
 RectTransform:
   m_ObjectHideFlags: 0
@@ -1412,6 +1411,41 @@ RectTransform:
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 360, y: 0}
   m_SizeDelta: {x: 101.82338, y: 101.82338}
+  m_Pivot: {x: 0.5, y: 0.5}
+--- !u!1 &5639177408995126902
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4931966536411603235}
+  m_Layer: 0
+  m_Name: MarkerRoot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &4931966536411603235
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5639177408995126902}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 8451468210017656206}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &5804252223036547142
 GameObject:
@@ -1882,7 +1916,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &4554475050116993833
 RectTransform:
   m_ObjectHideFlags: 0
