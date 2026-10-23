@@ -69,14 +69,14 @@ namespace BeatSpell.Spell
             Debug.Log("[Spell] MatchFailed | sequence cleared");
         }
 
-        public void LogMatched(SpellDefinition spell, float damageFactor)
+        public void LogMatched(SpellDefinition spell, float damageFactor, string accuracy)
         {
             float damage = spell.BaseDamage * damageFactor;
             LastMatchedSpell = spell;
             LastDamageFactor = damageFactor;
             LastSpellLog = "Matched";
             Debug.Log(
-                $"[Spell] Matched {spell.SpellId} | {spell.DisplayName} Lv.{spell.Level} | damageFactor={damageFactor:0.##} | damage={damage:0.##}");
+                $"[Spell] Matched {spell.SpellId} | accuracy={accuracy} | damageFactor={damageFactor:0.##} | damage={damage:0.##}");
             OnSpellCast?.Invoke(spell, damageFactor, damage);
         }
     }

@@ -74,22 +74,30 @@ namespace BeatSpell.Spell
             return false;
         }
 
-        private static float ComputeDamageFactor(IReadOnlyList<RhythmInputEntry> buffer)
+        /// <summary>
+        /// 匹配成功后的准确度标签：全 Perfect 为 Perfect，否则 Mixed（含 Good / Weak）。
+        /// </summary>
+        public static string GetMatchAccuracyLabel(IReadOnlyList<RhythmInputEntry> buffer)
         {
-            bool anyGood = false;
+            if (buffer == null || buffer.Count == 0)
+            {
+                return "Mixed";
+            }
+
             for (int i = 0; i < buffer.Count; i++)
             {
-                switch (buffer[i].Grade)
+                if (buffer[i].Grade != BeatTimingGrade.Perfect)
                 {
-                    case BeatTimingGrade.Miss:
-                        return 0f;
-                    case BeatTimingGrade.Good:
-                        anyGood = true;
-                        break;
+                    return "Mixed";
                 }
             }
 
-            return anyGood ? 0.8f : 1f;
+            return "Perfect";
+        }
+
+        private static float ComputeDamageFactor(IReadOnlyList<RhythmInputEntry> buffer)
+        {
+            return GetMatchAccuracyLabel(buffer) == "Perfect" ? 1f : 0.8f;
         }
     }
 }

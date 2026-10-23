@@ -49,7 +49,7 @@ isProject: false
   - 火焰魔法（Demo）：`咏唱(J) -> 1拍 -> 施法(K)`；图标顶黄=咏唱、右黑=施法（可视化，判定看类型+间隔）
   - 治疗术：`咏唱(J)  -> 半拍 -> 咏唱(J)  -> 半拍 -> 施法(K)`
   - 雷击术：`咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 咏唱 -> 1拍 -> 施法`
-- 伤害结算建议：全部 Perfect 为 100%，含 Good 无 Miss 时降低到 70% 到 90%，任意 Miss 为 0。
+- 伤害结算（第 4 轮小步 4 已落地）：匹配成功后全 Perfect 为 100%，含任意 Good/Weak 先统一 80%；匹配失败不扣血。
 
 ## 原型架构图
 ```mermaid
@@ -251,7 +251,7 @@ flowchart TD
   - B：`Chant 0/200ms` → `Weak`，`BufferCount=1`，无 `ChantBroken`，1 个 Marker
   - I：空 `Cast` → `EmptyCastPenalty`；封锁内 `Chant` → `InputRejected`，缓冲 0
   - 回归：`Chant 0 + Cast 1` → `Matched`，20→10
-- **状态**：小步 2 **completed**（准确度不打断）。`SpellMatcher` 仍把 Weak 当伤害 0，留给小步 4。
+- **状态**：小步 2 **completed**（准确度不打断）。
 - **小步 2 补丁（空施法黑色留痕 + 短效自销毁）**：
   - `RhythmPrototypeBootstrap`：空 Cast → `[Beat]` → `ShowTransientCastMarker(timing, EmptyCastPenaltySeconds)` → `EmptyCastPenalty` + 半拍封锁，不 `TryAppend`
   - `BeatInputMarkerView`：队列 Marker 与短效 Marker 分列表；`ExpireTransientIfNeeded` 按 dsp 到期销毁
@@ -281,4 +281,21 @@ flowchart TD
   - 回归：`Chant 0 + Cast 1` 仍 `Matched Fireball`，20→10
 - **状态**：小步 3 **completed**。
 - **Inspector**：三个配方资产上的 `matchToleranceBeats=0.125`；`RhythmPrototype.spellCatalog` 应看到 3 项。
-- **新问题**：半拍 / 1/4 拍输入相对最近整数拍偏差大，当前仍记为 `Weak`，`SpellMatcher` 会把伤害打成 0。这是小步 4 的范围，匹配本身已成功。
+- **新问题（已在小步 4 处理伤害）**：半拍 / 1/4 拍输入相对最近整数拍偏差大，记为 `Weak` 时匹配成功仍按 Mixed 扣 0.8 倍血。
+- **遗留**：冻结 plan 用例 D「仅 Cast beat=1 offset=80ms」在 `BeatFloat` 间隔下为 1.16 拍，超出 `matchToleranceBeats=0.125` 会 `MatchFailed`；同向 Good（`Chant 0/80ms + Cast 1/80ms`）间隔仍为 1.0，可验 `damageFactor=0.8`。
+
+## 第 4 轮魔法完整补完 · 小步 4（统一削弱伤害）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 不得修改。
+- **本轮目标**：匹配成功后全 `Perfect` → `damageFactor=1.0`；含任意 `Good`/`Weak` → `0.8`；不再 `Weak` 归零。
+- **改动摘要**：
+  - `Assets/Scripts/Spell/SpellMatcher.cs`：`GetMatchAccuracyLabel`；`ComputeDamageFactor` 删除 Weak→0
+  - `Assets/Scripts/Spell/SpellCaster.cs`：`LogMatched(spell, factor, accuracy)`，日志含 `accuracy=Perfect|Mixed`
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：匹配成功时传入 accuracy 标签
+- **MCP 验收**：Play 模式 C / D' / E / F / G 通过。前缀 `[Spell]`。
+  - C：`Chant 0/0 + Cast 1/0` → `accuracy=Perfect`，`factor=1`，20→10
+  - D'：`Chant 0/80ms + Cast 1/80ms` → `Matched`，`accuracy=Mixed`，`factor=0.8`，20→12
+  - E：`HalfBeat_Test` 小数拍序列 → `factor=0.8`，20→12
+  - F：`QuarterBeat_Test` → `factor=0.8`，20→12
+  - G：超容差 Cast → `MatchFailed`，hp 仍为 20
+- **状态**：小步 4 **completed**。下一步：小步 5 队首留痕生命周期。

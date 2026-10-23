@@ -99,7 +99,8 @@ namespace BeatSpell.Spell
 
             if (SpellMatcher.TryMatchAny(entries, spellCatalog, out SpellDefinition matched, out float damageFactor))
             {
-                caster?.LogMatched(matched, damageFactor);
+                string accuracy = SpellMatcher.GetMatchAccuracyLabel(entries);
+                caster?.LogMatched(matched, damageFactor, accuracy);
                 Clear(notify: false);
                 return SpellBufferResult.Matched;
             }
