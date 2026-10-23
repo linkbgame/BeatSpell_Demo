@@ -75,7 +75,8 @@ namespace BeatSpell.Spell
         }
 
         /// <summary>
-        /// 匹配成功后的准确度标签：全 Perfect 为 Perfect，否则 Mixed（含 Good / Weak）。
+        /// 匹配成功后的准确度标签：全 UI 提示 Perfect 为 Perfect，否则 Mixed（含 Good / Weak）。
+        /// 半拍魔法踩中中点时，核心整拍判定可能是 Weak，但提示等级应视为 Perfect。
         /// </summary>
         public static string GetMatchAccuracyLabel(IReadOnlyList<RhythmInputEntry> buffer)
         {
@@ -86,7 +87,7 @@ namespace BeatSpell.Spell
 
             for (int i = 0; i < buffer.Count; i++)
             {
-                if (buffer[i].Grade != BeatTimingGrade.Perfect)
+                if (buffer[i].PromptGrade != BeatTimingGrade.Perfect)
                 {
                     return "Mixed";
                 }

@@ -27,6 +27,9 @@ namespace BeatSpell.Prototype
 
         private double blockedUntilDspTime;
         private double queryDspTime;
+        private BeatTimingGrade lastPromptGrade = BeatTimingGrade.Weak;
+        private float lastPromptAnchorBeatFloat;
+        private float lastPromptDeltaMs;
 
         public BeatClock Clock => beatClock;
         public RhythmJudge Judge => rhythmJudge;
@@ -50,6 +53,11 @@ namespace BeatSpell.Prototype
         public string LastMarkerKind => markerView != null ? markerView.LastMarkerKind : string.Empty;
         public bool LastQueueMarkerHasRays => markerView != null && markerView.LastQueueMarkerHasRays;
         public string LastQueueMarkerGrade => markerView != null ? markerView.LastQueueMarkerGrade : string.Empty;
+        public string LastQueueMarkerPromptGrade => markerView != null ? markerView.LastQueueMarkerPromptGrade : string.Empty;
+        public string LastPromptGrade => lastPromptGrade.ToString();
+        public float LastPromptAnchorBeatFloat => lastPromptAnchorBeatFloat;
+        public float LastPromptDeltaMs => lastPromptDeltaMs;
+        public Vector2 LastPromptAnchorPosition => markerView != null ? markerView.LastPromptAnchorPosition : Vector2.zero;
         public float HeadMarkerBeatFloat => markerView != null ? markerView.HeadMarkerBeatFloat : 0f;
         public float HeadBufferBeatFloat =>
             spellInputBuffer != null ? spellInputBuffer.LifecycleStartBeatFloat : 0f;
@@ -182,6 +190,9 @@ namespace BeatSpell.Prototype
         {
             blockedUntilDspTime = 0d;
             queryDspTime = 0d;
+            lastPromptGrade = BeatTimingGrade.Weak;
+            lastPromptAnchorBeatFloat = 0f;
+            lastPromptDeltaMs = 0f;
 
             if (spellInputBuffer != null)
             {
@@ -278,6 +289,7 @@ namespace BeatSpell.Prototype
             }
 
             BeatTimingGrade grade = rhythmJudge.Evaluate(timing.DeltaMs);
+            BeatTimingGrade promptGrade = EvaluatePromptGrade(timing, out float promptAnchorBeatFloat);
             LogBeatInput(type, grade, timing);
 
             if (inputController != null)
@@ -287,7 +299,14 @@ namespace BeatSpell.Prototype
 
             if (spellCaster != null)
             {
-                spellInputBuffer.TryAppend(type, grade, timing, spellCatalog, spellCaster);
+                spellInputBuffer.TryAppend(
+                    type,
+                    grade,
+                    promptGrade,
+                    promptAnchorBeatFloat,
+                    timing,
+                    spellCatalog,
+                    spellCaster);
             }
 
             return grade;
@@ -298,6 +317,21 @@ namespace BeatSpell.Prototype
             string sign = timing.DeltaMs >= 0f ? "+" : string.Empty;
             Debug.Log(
                 $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
+        }
+
+        private BeatTimingGrade EvaluatePromptGrade(BeatTimingInfo timing, out float promptAnchorBeatFloat)
+        {
+            BeatTimingGrade promptGrade = rhythmJudge.EvaluateHalfBeatPrompt(
+                timing.BeatFloat,
+                ResolveSecondsPerBeat(),
+                out promptAnchorBeatFloat,
+                out lastPromptDeltaMs);
+
+            lastPromptGrade = promptGrade;
+            lastPromptAnchorBeatFloat = promptAnchorBeatFloat;
+            Debug.Log(
+                $"[Track] Prompt {promptGrade} | beatFloat={timing.BeatFloat:0.###} | anchorBeatFloat={promptAnchorBeatFloat:0.###} | delta={lastPromptDeltaMs:+0;-0;0}ms");
+            return promptGrade;
         }
 
         private bool EvaluateLifecycle(BeatTimingInfo timing)

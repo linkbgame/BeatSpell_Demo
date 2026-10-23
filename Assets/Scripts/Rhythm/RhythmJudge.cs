@@ -40,5 +40,23 @@ namespace BeatSpell.Rhythm
 
             return BeatTimingGrade.Weak;
         }
+
+        /// <summary>
+        /// UI 提示用：把输入投到最近的 0.5 拍锚点（4 顶点 + 4 中点）后判定。
+        /// 核心节拍日志仍可保留整拍判定；这里只决定 Perfect 提示是否吸附到 8 点。
+        /// </summary>
+        public BeatTimingGrade EvaluateHalfBeatPrompt(
+            float beatFloat,
+            float secondsPerBeat,
+            out float anchorBeatFloat,
+            out float deltaMs)
+        {
+            anchorBeatFloat = Mathf.Floor(beatFloat * 2f + 0.5f) * 0.5f;
+            anchorBeatFloat = Mathf.Max(0f, anchorBeatFloat);
+            deltaMs = secondsPerBeat > 0f
+                ? (beatFloat - anchorBeatFloat) * secondsPerBeat * 1000f
+                : 0f;
+            return Evaluate(deltaMs);
+        }
     }
 }

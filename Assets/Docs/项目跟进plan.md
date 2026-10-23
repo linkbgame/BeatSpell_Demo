@@ -319,3 +319,28 @@ flowchart TD
 - **状态**：小步 5 **completed**。下一步：小步 6 文档同步（冻结 plan 仍只读，不改 frontmatter）。
 - **Inspector**：无需新 Sprite。`RhythmPrototype.trackView` 可空，运行时会自动查找 `DiamondBeatTrackView`。`chantLifetimeBeats` 仍为 4，现按拍数而不是秒数判断过期。
 - **新问题**：Play 中改脚本后事件订阅会丢，MCP 验收需干净进 Play；火焰配方 `spellId` 仍是 `Fireball`（资产名 `Fireball_Lv1`）。
+
+## 第 4 轮魔法完整补完 · 小步 5 补丁（完美节拍输入提示反馈）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改；本补丁记录在跟进文档中。
+- **本轮目标**：重新定义 Perfect 输入反馈。玩家咏唱/施法如果踩中当前音轨系统的一圈 8 个点（4 个顶点 + 4 个中点），该次 UI 提示吸附到对应点并附带已有的放射线段；非 Perfect 输入继续按实际 `BeatFloat` 留痕，不吸附。
+- **规则澄清**：
+  - Perfect 提示不由魔法配方 `targetBeatFloat` 驱动；玩家纯粹进行 `Chant` / `Cast` 输入，只要命中最近 0.5 拍锚点的 Perfect 窗口就有提示。
+  - 当前 8 点为 `0 / 0.5 / 1 / 1.5 / 2 / 2.5 / 3 / 3.5`：整数拍对应四顶点，`.5` 对应四条边中点。
+  - 半拍魔法使用这套 8 点反馈；`1/4` 拍魔法判定仍靠 `BeatFloat`、配方间隔与容差，`1/4` 拍 UI 需要另一套音轨系统，目前不做。
+- **改动摘要**：
+  - `Assets/Scripts/Rhythm/RhythmJudge.cs`：新增 `EvaluateHalfBeatPrompt`，按最近 0.5 拍锚点计算提示等级和锚点。
+  - `Assets/Scripts/Spell/RhythmInputEntry.cs`：新增 `PromptGrade` / `PromptAnchorBeatFloat`。
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：入队时记录核心等级与 UI 提示等级；匹配仍用实际 `BeatFloat` 间隔。
+  - `Assets/Scripts/Spell/SpellMatcher.cs`：匹配成功后的 `accuracy=Perfect|Mixed` 改看 `PromptGrade`，让半拍中点 Perfect 不被整拍 Weak 拉低。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：Perfect 时用 `PromptAnchorBeatFloat` 吸附到顶点/中点并显示放射线；非 Perfect 仍用真实输入位置。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：暴露 `LastPromptGrade` / `LastPromptAnchorBeatFloat` / `LastPromptAnchorPosition` 等 MCP 查询字段。
+- **MCP 验收**：Play 模式自动化通过，Console 最终无错误无警告。
+  - 顶点 Perfect：`Chant 0.0` → `LastPromptGrade=Perfect`，锚点 Top，放射线开启。
+  - 中点 Perfect：`Chant 0.5` → `LastPromptGrade=Perfect`，锚点 Top→Right 中点，放射线开启。
+  - 非 Perfect：`Chant 0.25` → 不显示 Perfect、不吸附、无放射线。
+  - 施法 Perfect：`Chant 0 + Cast 1` → `Fireball` 匹配，Cast 锚点 Right，放射线开启，`damageFactor=1`。
+  - 半拍魔法：`Chant 0 + Chant 0.5 + Cast 1` → `HalfBeat_Test` 匹配，`damageFactor=1`。
+  - 1/4 拍说明：`Chant 0 + Cast 0.25` → `QuarterBeat_Test` 仍可匹配，但当前 UI 不显示 Perfect 放射线。
+  - 生命周期回归：`beatFloat=0.25` 起始，`4.24` 不清，`4.25` 清空缓冲与 Marker。
+- **状态**：小步 5 补丁 **completed**。后续若要做 `1/4` 拍 UI，请另起音轨系统方案，不在当前 8 点主音轨上直接扩成 16 点。

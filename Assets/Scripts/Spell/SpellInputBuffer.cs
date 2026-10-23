@@ -67,6 +67,8 @@ namespace BeatSpell.Spell
         public SpellBufferResult TryAppend(
             BeatInputType type,
             BeatTimingGrade grade,
+            BeatTimingGrade promptGrade,
+            float promptAnchorBeatFloat,
             BeatTimingInfo timing,
             IReadOnlyList<SpellDefinition> spellCatalog,
             SpellCaster caster)
@@ -87,12 +89,14 @@ namespace BeatSpell.Spell
             RhythmInputEntry entry = new RhythmInputEntry(
                 type,
                 grade,
+                promptGrade,
                 timing.BeatIndex,
                 timing.VertexIndex,
                 timing.DeltaMs,
                 intervalBeats,
                 timing.DspTime,
-                timing.BeatFloat);
+                timing.BeatFloat,
+                promptAnchorBeatFloat);
             entries.Add(entry);
             OnEntryAdded?.Invoke(entry);
 

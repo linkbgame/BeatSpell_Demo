@@ -41,6 +41,9 @@ namespace BeatSpell.UI
         public string LastMarkerKind { get; private set; } = string.Empty;
         public bool LastQueueMarkerHasRays { get; private set; }
         public string LastQueueMarkerGrade { get; private set; } = string.Empty;
+        public string LastQueueMarkerPromptGrade { get; private set; } = string.Empty;
+        public float LastPromptAnchorBeatFloat { get; private set; }
+        public Vector2 LastPromptAnchorPosition { get; private set; }
         public float HeadMarkerBeatFloat => hasVisualLifecycle ? headBeatFloat : 0f;
 
         public void Bind(RhythmPrototypeBootstrap host)
@@ -98,6 +101,9 @@ namespace BeatSpell.UI
             headBeatFloat = 0f;
             LastQueueMarkerHasRays = false;
             LastQueueMarkerGrade = string.Empty;
+            LastQueueMarkerPromptGrade = string.Empty;
+            LastPromptAnchorBeatFloat = 0f;
+            LastPromptAnchorPosition = Vector2.zero;
             if (transients.Count == 0)
             {
                 LastMarkerKind = string.Empty;
@@ -231,7 +237,7 @@ namespace BeatSpell.UI
                 headBeatFloat = entry.BeatFloat;
             }
 
-            SpawnMarker(entry.BeatFloat, entry.InputType, entry.Grade);
+            SpawnMarker(entry);
         }
 
         private void HandleCleared()
@@ -251,11 +257,33 @@ namespace BeatSpell.UI
             return image.rectTransform.anchoredPosition;
         }
 
+        private Vector2 SpawnMarker(RhythmInputEntry entry)
+        {
+            bool promptPerfect = entry.PromptGrade == BeatTimingGrade.Perfect;
+            float displayBeatFloat = promptPerfect ? entry.PromptAnchorBeatFloat : entry.BeatFloat;
+            Image image = CreateMarkerImage(
+                displayBeatFloat,
+                entry.InputType,
+                entry.PromptGrade,
+                isQueue: true,
+                actualBeatFloat: entry.BeatFloat,
+                promptAnchorBeatFloat: entry.PromptAnchorBeatFloat);
+            if (image == null)
+            {
+                return Vector2.zero;
+            }
+
+            spawnedMarkers.Add(image);
+            return image.rectTransform.anchoredPosition;
+        }
+
         private Image CreateMarkerImage(
             float beatFloat,
             BeatInputType type,
             BeatTimingGrade grade,
-            bool isQueue)
+            bool isQueue,
+            float actualBeatFloat = float.NaN,
+            float promptAnchorBeatFloat = float.NaN)
         {
             CacheRefs();
             if (markerRoot == null || trackView == null)
@@ -294,10 +322,15 @@ namespace BeatSpell.UI
             {
                 LastQueueMarkerHasRays = hasRays;
                 LastQueueMarkerGrade = grade.ToString();
+                LastQueueMarkerPromptGrade = grade.ToString();
+                LastPromptAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
+                LastPromptAnchorPosition = trackView.GetPositionOnTrack(LastPromptAnchorBeatFloat);
             }
 
+            float loggedActualBeatFloat = float.IsNaN(actualBeatFloat) ? beatFloat : actualBeatFloat;
+            float loggedAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
             Debug.Log(
-                $"[Track] Marker {type} {grade} beatFloat={beatFloat:0.##} rays={(hasRays ? PerfectRayCount : 0)} pos=({pos.x:0},{pos.y:0})");
+                $"[Track] Marker {type} {grade} actualBeatFloat={loggedActualBeatFloat:0.##} displayBeatFloat={beatFloat:0.##} anchorBeatFloat={loggedAnchorBeatFloat:0.##} rays={(hasRays ? PerfectRayCount : 0)} pos=({pos.x:0},{pos.y:0})");
             return image;
         }
 
