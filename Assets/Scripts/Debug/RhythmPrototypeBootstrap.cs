@@ -21,6 +21,7 @@ namespace BeatSpell.Prototype
         [SerializeField] private SpellDefinition[] spellCatalog;
         [SerializeField] private BattleGameManager battleGameManager;
         [SerializeField] private BeatInputMarkerView markerView;
+        [SerializeField] private DiamondBeatTrackView trackView;
         [SerializeField] private float chantLifetimeBeats = 4f;
         [SerializeField] private float emptyCastPenaltyBeats = 0.5f;
 
@@ -46,6 +47,15 @@ namespace BeatSpell.Prototype
         public int MarkerCount => markerView != null ? markerView.MarkerCount : 0;
         public int QueueMarkerCount => markerView != null ? markerView.QueueMarkerCount : 0;
         public int TransientMarkerCount => markerView != null ? markerView.TransientMarkerCount : 0;
+        public string LastMarkerKind => markerView != null ? markerView.LastMarkerKind : string.Empty;
+        public bool LastQueueMarkerHasRays => markerView != null && markerView.LastQueueMarkerHasRays;
+        public string LastQueueMarkerGrade => markerView != null ? markerView.LastQueueMarkerGrade : string.Empty;
+        public float HeadMarkerBeatFloat => markerView != null ? markerView.HeadMarkerBeatFloat : 0f;
+        public float HeadBufferBeatFloat =>
+            spellInputBuffer != null ? spellInputBuffer.LifecycleStartBeatFloat : 0f;
+        public float ChantLifetimeBeats => chantLifetimeBeats;
+        public int ActiveBeatVertex => trackView != null ? trackView.ActiveBeatVertex : VertexIndex;
+        public int ActiveBeatPulseCount => trackView != null ? trackView.ActiveBeatPulseCount : 0;
         public string LastSpellLog => spellCaster != null ? spellCaster.LastSpellLog : string.Empty;
         public string LastMatchedSpellId =>
             spellCaster != null && spellCaster.LastMatchedSpell != null
@@ -67,7 +77,7 @@ namespace BeatSpell.Prototype
                 return;
             }
 
-            EvaluateLifecycle(AudioSettings.dspTime);
+            EvaluateLifecycle(beatClock.GetTimingAt(AudioSettings.dspTime));
         }
 
         public void ProcessLiveInput(BeatInputType type)
@@ -210,8 +220,25 @@ namespace BeatSpell.Prototype
                 beatClock.StartClock();
             }
 
-            BeatTimingInfo timing = beatClock.GetTimingForBeatIndex(beatIndex, offsetMs);
-            return EvaluateLifecycle(timing.DspTime);
+            return EvaluateLifecycle(beatClock.GetTimingForBeatIndex(beatIndex, offsetMs));
+        }
+
+        /// <summary>
+        /// MCP 小步 5：按连续拍位置推进队首生命周期，用于 4.24 / 4.25 边界。
+        /// </summary>
+        public bool EvaluateLifecycleAtBeatFloat(float beatFloat)
+        {
+            if (beatClock == null)
+            {
+                return false;
+            }
+
+            if (!beatClock.IsRunning)
+            {
+                beatClock.StartClock();
+            }
+
+            return EvaluateLifecycle(beatClock.GetTimingForBeatFloat(beatFloat));
         }
 
         public void SetGoodWindowMs(float goodWindowMs)
@@ -226,7 +253,7 @@ namespace BeatSpell.Prototype
 
         private BeatTimingGrade ProcessInput(BeatInputType type, BeatTimingInfo timing)
         {
-            EvaluateLifecycle(timing.DspTime);
+            EvaluateLifecycle(timing);
 
             if (timing.DspTime < blockedUntilDspTime)
             {
@@ -273,11 +300,11 @@ namespace BeatSpell.Prototype
                 $"[Beat] {type} | {grade} | delta={sign}{timing.DeltaMs:0}ms | beat={timing.BeatIndex} | beatFloat={timing.BeatFloat:0.###} | vertex={timing.VertexIndex}({BeatTimingInfo.VertexName(timing.VertexIndex)})");
         }
 
-        private bool EvaluateLifecycle(double dspNow)
+        private bool EvaluateLifecycle(BeatTimingInfo timing)
         {
-            queryDspTime = dspNow;
+            queryDspTime = timing.DspTime;
             bool expired = spellInputBuffer != null &&
-                           spellInputBuffer.ClearIfExpired(dspNow, ChantLifetimeSeconds);
+                           spellInputBuffer.ClearIfExpired(timing.BeatFloat, chantLifetimeBeats);
             if (expired)
             {
                 spellCaster?.LogChantExpired();
@@ -285,8 +312,13 @@ namespace BeatSpell.Prototype
 
             if (markerView != null)
             {
-                markerView.ExpireIfNeeded(dspNow, ChantLifetimeSeconds);
-                markerView.ExpireTransientIfNeeded(dspNow);
+                markerView.ExpireIfNeeded(timing.BeatFloat);
+                markerView.ExpireTransientIfNeeded(timing.DspTime);
+            }
+
+            if (trackView != null)
+            {
+                trackView.SetBeatVertex(timing.VertexIndex);
             }
 
             return expired;
@@ -324,13 +356,14 @@ namespace BeatSpell.Prototype
                 markerView = FindFirstObjectByType<BeatInputMarkerView>();
             }
 
-            if (beatClock != null)
+            if (trackView == null)
             {
-                DiamondBeatTrackView trackView = FindFirstObjectByType<DiamondBeatTrackView>();
-                if (trackView != null)
-                {
-                    trackView.BindClock(beatClock);
-                }
+                trackView = FindFirstObjectByType<DiamondBeatTrackView>();
+            }
+
+            if (beatClock != null && trackView != null)
+            {
+                trackView.BindClock(beatClock);
             }
         }
     }

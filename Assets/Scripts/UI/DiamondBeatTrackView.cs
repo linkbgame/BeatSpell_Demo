@@ -5,7 +5,8 @@ using UnityEngine.UI;
 namespace BeatSpell.UI
 {
     /// <summary>
-    /// 第 4 轮：只读 BeatClock 四顶点当前拍。提供轨迹插值给输入留痕，不参与判定。
+    /// 第 4 轮：只读 BeatClock 四顶点当前拍。白点只在 Top/Right/Bottom/Left 跳动，
+    /// 不读取 TrackPhase，不沿边连续移动。轨迹插值仅给输入留痕，不参与判定。
     /// </summary>
     public class DiamondBeatTrackView : MonoBehaviour
     {
@@ -27,6 +28,26 @@ namespace BeatSpell.UI
         public int ActiveBeatVertex { get; private set; }
         public float DiamondRadius => diamondRadius;
         public float MarkerSize => cachedVertexSize * 0.85f;
+
+        /// <summary>
+        /// 当前激活的白点数量，验收用：应始终为 0 或 1。
+        /// </summary>
+        public int ActiveBeatPulseCount
+        {
+            get
+            {
+                int count = 0;
+                for (int i = 0; i < beatPulses.Length; i++)
+                {
+                    if (beatPulses[i] != null && beatPulses[i].activeSelf)
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+        }
 
         public void BindClock(BeatClock clock)
         {
@@ -68,6 +89,7 @@ namespace BeatSpell.UI
                 return;
             }
 
+            // 白点只跟 VertexIndex，禁止用 TrackPhase 做沿边游标。
             SetBeatVertex(beatClock.VertexIndex);
         }
 

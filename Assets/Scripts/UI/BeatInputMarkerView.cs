@@ -25,17 +25,23 @@ namespace BeatSpell.UI
         [SerializeField] private Sprite chantSprite;
         [SerializeField] private Sprite castSprite;
 
+        private const int PerfectRayCount = 8;
+        private const float QueueLifecycleBeats = 4f;
+
         private SpellInputBuffer buffer;
         private readonly List<Image> spawnedMarkers = new List<Image>(8);
         private readonly List<TransientMarker> transients = new List<TransientMarker>(4);
         private bool hasVisualLifecycle;
-        private double visualStartDspTime;
+        private float headBeatFloat;
 
         public int QueueMarkerCount => spawnedMarkers.Count;
         public int TransientMarkerCount => transients.Count;
         public int MarkerCount => spawnedMarkers.Count + transients.Count;
         public Vector2 LastMarkerPosition { get; private set; }
         public string LastMarkerKind { get; private set; } = string.Empty;
+        public bool LastQueueMarkerHasRays { get; private set; }
+        public string LastQueueMarkerGrade { get; private set; } = string.Empty;
+        public float HeadMarkerBeatFloat => hasVisualLifecycle ? headBeatFloat : 0f;
 
         public void Bind(RhythmPrototypeBootstrap host)
         {
@@ -64,7 +70,7 @@ namespace BeatSpell.UI
                 return;
             }
 
-            ExpireIfNeeded(dspNow, bootstrap.ChantLifetimeSeconds);
+            ExpireIfNeeded(bootstrap.Clock.BeatFloat);
         }
 
         private void OnDisable()
@@ -89,7 +95,9 @@ namespace BeatSpell.UI
 
             spawnedMarkers.Clear();
             hasVisualLifecycle = false;
-            visualStartDspTime = 0d;
+            headBeatFloat = 0f;
+            LastQueueMarkerHasRays = false;
+            LastQueueMarkerGrade = string.Empty;
             if (transients.Count == 0)
             {
                 LastMarkerKind = string.Empty;
@@ -100,16 +108,16 @@ namespace BeatSpell.UI
         }
 
         /// <summary>
-        /// 从首个 Marker 的 dsp 起算，满一圈后销毁留痕。匹配成功后缓冲可能已空，仍靠这里清 UI。
+        /// 队首 BeatFloat 绕一圈（+4 拍）后销毁留痕。匹配成功后缓冲可能已空，仍靠这里清 UI。
         /// </summary>
-        public void ExpireIfNeeded(double dspNow, float lifecycleSeconds)
+        public void ExpireIfNeeded(float currentBeatFloat)
         {
-            if (!hasVisualLifecycle || spawnedMarkers.Count == 0 || lifecycleSeconds <= 0f)
+            if (!hasVisualLifecycle || spawnedMarkers.Count == 0)
             {
                 return;
             }
 
-            if (dspNow < visualStartDspTime + lifecycleSeconds)
+            if (currentBeatFloat < headBeatFloat + QueueLifecycleBeats)
             {
                 return;
             }
@@ -119,7 +127,7 @@ namespace BeatSpell.UI
 
         public Vector2 ShowMarkerForTest(float beatFloat, BeatInputType type)
         {
-            return SpawnMarker(beatFloat, type);
+            return SpawnMarker(beatFloat, type, BeatTimingGrade.Weak);
         }
 
         /// <summary>
@@ -127,7 +135,7 @@ namespace BeatSpell.UI
         /// </summary>
         public void ShowTransientCastMarker(BeatTimingInfo timing, float lifeSeconds)
         {
-            Image image = CreateMarkerImage(timing.BeatFloat, BeatInputType.Cast);
+            Image image = CreateMarkerImage(timing.BeatFloat, BeatInputType.Cast, BeatTimingGrade.Perfect, isQueue: false);
             if (image == null)
             {
                 return;
@@ -220,11 +228,10 @@ namespace BeatSpell.UI
             if (!hasVisualLifecycle)
             {
                 hasVisualLifecycle = true;
-                visualStartDspTime = entry.DspTime;
+                headBeatFloat = entry.BeatFloat;
             }
 
-            float beatFloat = entry.BeatIndex + entry.DeltaMs / (1000f * ResolveSecondsPerBeat());
-            SpawnMarker(beatFloat, entry.InputType);
+            SpawnMarker(entry.BeatFloat, entry.InputType, entry.Grade);
         }
 
         private void HandleCleared()
@@ -232,9 +239,9 @@ namespace BeatSpell.UI
             ClearMarkers();
         }
 
-        private Vector2 SpawnMarker(float beatFloat, BeatInputType type)
+        private Vector2 SpawnMarker(float beatFloat, BeatInputType type, BeatTimingGrade grade = BeatTimingGrade.Weak)
         {
-            Image image = CreateMarkerImage(beatFloat, type);
+            Image image = CreateMarkerImage(beatFloat, type, grade, isQueue: true);
             if (image == null)
             {
                 return Vector2.zero;
@@ -244,7 +251,11 @@ namespace BeatSpell.UI
             return image.rectTransform.anchoredPosition;
         }
 
-        private Image CreateMarkerImage(float beatFloat, BeatInputType type)
+        private Image CreateMarkerImage(
+            float beatFloat,
+            BeatInputType type,
+            BeatTimingGrade grade,
+            bool isQueue)
         {
             CacheRefs();
             if (markerRoot == null || trackView == null)
@@ -271,10 +282,56 @@ namespace BeatSpell.UI
             image.raycastTarget = false;
             image.preserveAspect = true;
 
+            bool hasRays = isQueue && grade == BeatTimingGrade.Perfect;
+            if (hasRays)
+            {
+                AttachPerfectRays(rect, size);
+            }
+
             LastMarkerPosition = pos;
             LastMarkerKind = type.ToString();
-            Debug.Log($"[Track] Marker {type} beatFloat={beatFloat:0.##} pos=({pos.x:0},{pos.y:0})");
+            if (isQueue)
+            {
+                LastQueueMarkerHasRays = hasRays;
+                LastQueueMarkerGrade = grade.ToString();
+            }
+
+            Debug.Log(
+                $"[Track] Marker {type} {grade} beatFloat={beatFloat:0.##} rays={(hasRays ? PerfectRayCount : 0)} pos=({pos.x:0},{pos.y:0})");
             return image;
+        }
+
+        /// <summary>
+        /// Perfect 放射短线：从圆心向外，不依赖额外 Sprite。
+        /// </summary>
+        private static void AttachPerfectRays(RectTransform parent, float markerSize)
+        {
+            float rayLength = markerSize * 0.55f;
+            float rayThickness = Mathf.Max(2f, markerSize * 0.08f);
+            Color rayColor = new Color(0.965f, 0.957f, 0.114f, 0.95f);
+            float startRadius = markerSize * 0.42f;
+
+            for (int i = 0; i < PerfectRayCount; i++)
+            {
+                var go = new GameObject($"Ray_{i}", typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(parent, false);
+                go.transform.SetAsFirstSibling();
+
+                RectTransform rect = go.GetComponent<RectTransform>();
+                rect.anchorMin = new Vector2(0.5f, 0.5f);
+                rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0f);
+                rect.sizeDelta = new Vector2(rayThickness, rayLength);
+
+                float angle = i * (360f / PerfectRayCount);
+                rect.localEulerAngles = new Vector3(0f, 0f, angle);
+                float rad = angle * Mathf.Deg2Rad;
+                rect.anchoredPosition = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad)) * startRadius;
+
+                Image image = go.GetComponent<Image>();
+                image.color = rayColor;
+                image.raycastTarget = false;
+            }
         }
 
         private static void DestroyMarkerImage(Image image)
@@ -283,16 +340,6 @@ namespace BeatSpell.UI
             {
                 Destroy(image.gameObject);
             }
-        }
-
-        private float ResolveSecondsPerBeat()
-        {
-            if (bootstrap != null && bootstrap.Clock != null)
-            {
-                return bootstrap.Clock.SecondsPerBeat;
-            }
-
-            return 0.5f;
         }
 
         private void CacheRefs()

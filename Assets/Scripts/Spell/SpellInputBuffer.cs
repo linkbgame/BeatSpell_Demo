@@ -23,11 +23,13 @@ namespace BeatSpell.Spell
         private readonly List<RhythmInputEntry> entries = new List<RhythmInputEntry>(8);
         private bool hasLifecycle;
         private double lifecycleStartDspTime;
+        private float lifecycleStartBeatFloat;
 
         public IReadOnlyList<RhythmInputEntry> Entries => entries;
         public int Count => entries.Count;
         public bool HasActiveChantLifecycle => hasLifecycle;
         public double LifecycleStartDspTime => lifecycleStartDspTime;
+        public float LifecycleStartBeatFloat => lifecycleStartBeatFloat;
         public event Action OnCleared;
         public event Action<RhythmInputEntry> OnEntryAdded;
 
@@ -36,6 +38,7 @@ namespace BeatSpell.Spell
             entries.Clear();
             hasLifecycle = false;
             lifecycleStartDspTime = 0d;
+            lifecycleStartBeatFloat = 0f;
             if (notify)
             {
                 OnCleared?.Invoke();
@@ -43,16 +46,16 @@ namespace BeatSpell.Spell
         }
 
         /// <summary>
-        /// 从首个有效咏唱的 dsp 起算，满一圈后清空。返回是否发生过期。
+        /// 队首 BeatFloat 起算满一圈（默认 4 拍）后清空。由核心节拍数据判断，不依赖 UI。
         /// </summary>
-        public bool ClearIfExpired(double dspNow, float lifecycleSeconds)
+        public bool ClearIfExpired(float currentBeatFloat, float lifetimeBeats)
         {
-            if (!hasLifecycle || lifecycleSeconds <= 0f)
+            if (!hasLifecycle || lifetimeBeats <= 0f)
             {
                 return false;
             }
 
-            if (dspNow < lifecycleStartDspTime + lifecycleSeconds)
+            if (currentBeatFloat < lifecycleStartBeatFloat + lifetimeBeats)
             {
                 return false;
             }
@@ -78,6 +81,7 @@ namespace BeatSpell.Spell
             {
                 hasLifecycle = true;
                 lifecycleStartDspTime = timing.DspTime;
+                lifecycleStartBeatFloat = timing.BeatFloat;
             }
 
             RhythmInputEntry entry = new RhythmInputEntry(

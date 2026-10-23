@@ -112,6 +112,7 @@ flowchart TD
   - `HintTextView`：显示操作提示和判定结果。
   - 第 4 轮实测（重做）：当前拍只读 `BeatClock.VertexIndex`，四顶点整拍跳动。输入留痕用 `beatFloat` 在菱形边上插值，不吸附 4/8 点。`MarkerRoot` 动态生成黄/黑点。匹配成功 `Clear(notify:false)` 保留本序列痕迹；`MatchFailed` / `ResetCombat` 清空。Miss 打断序列后仍在本次按键轨迹位置留一点。血条与侧栏技能菱形未做。
   - 第 4 轮补完：Marker 从首个留痕起算一圈后 `ClearMarkers`；新一轮咏唱会先清掉上一轮残留。过期前缀 `[Track] MarkersCleared`。
+  - 第 4 轮小步 5：队首清理改由 `BeatFloat >= headBeatFloat + 4` 判断；`Perfect` 队列 Marker 动态生成放射线，`Good/Weak` 只有底图。白点仍只读 `VertexIndex`。
 - 全局系统
   - `BattleGameManager`：控制战斗开始、胜利、失败、暂停。
   - `BattleStatsTracker`：记录通关时间、Perfect 次数、Good 次数、Miss 次数。
@@ -299,3 +300,22 @@ flowchart TD
   - F：`QuarterBeat_Test` → `factor=0.8`，20→12
   - G：超容差 Cast → `MatchFailed`，hp 仍为 20
 - **状态**：小步 4 **completed**。下一步：小步 5 队首留痕生命周期。
+
+## 第 4 轮魔法完整补完 · 小步 5（队首留痕生命周期 + 视觉等级）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 不得修改。
+- **本轮目标**：队列留痕按队首 `BeatFloat + 4` 清空缓冲和 Marker；`Perfect` 显示放射线，`Good/Weak` 不显示；白点仍只在四顶点跳动。
+- **改动摘要**：
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：记录 `headBeatFloat`；`ExpireIfNeeded(currentBeatFloat)`；`Perfect` 动态生成 8 条放射短线；查询 `LastQueueMarkerHasRays` / `LastQueueMarkerGrade`
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：生命周期改为 `currentBeatFloat >= lifecycleStartBeatFloat + lifetimeBeats`
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：`EvaluateLifecycleAtBeatFloat`；暴露队首与放射线查询
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：白点继续只读 `VertexIndex`；增加 `ActiveBeatPulseCount`
+- **MCP 验收**：Play 模式 A / B / H / I + 火焰回归通过。前缀 `[Beat]` / `[Spell]` / `[Track]`。无编译错误。
+  - A：`Chant 0/0` → `Perfect`，`BufferCount=1`，`QueueMarkerCount=1`，`LastQueueMarkerHasRays=true`
+  - B：`Chant 0/200ms` → `Weak` 入队，无放射线，无 `ChantBroken`
+  - H：首个输入 `beatFloat=0.25`；推进到 `4.24` 不清；`4.25` 清空缓冲与 Marker，日志 `ChantExpired`；白点 `ActiveBeatPulseCount=1`
+  - I：无咏唱 Cast → 短效黑色 Cast Marker=1、队列=0；封锁内 `InputRejected` 不增 Marker；推进到 `0.5` 拍后短效 Marker=0
+  - 回归：`Chant 0 + Cast 1` → `Matched Fireball`，`factor=1`，20→10
+- **状态**：小步 5 **completed**。下一步：小步 6 文档同步（冻结 plan 仍只读，不改 frontmatter）。
+- **Inspector**：无需新 Sprite。`RhythmPrototype.trackView` 可空，运行时会自动查找 `DiamondBeatTrackView`。`chantLifetimeBeats` 仍为 4，现按拍数而不是秒数判断过期。
+- **新问题**：Play 中改脚本后事件订阅会丢，MCP 验收需干净进 Play；火焰配方 `spellId` 仍是 `Fireball`（资产名 `Fireball_Lv1`）。
