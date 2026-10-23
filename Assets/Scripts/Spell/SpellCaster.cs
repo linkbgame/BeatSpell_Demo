@@ -69,6 +69,14 @@ namespace BeatSpell.Spell
             Debug.Log("[Spell] MatchFailed | sequence cleared");
         }
 
+        public void LogAutoCastFailed()
+        {
+            LastMatchedSpell = null;
+            LastDamageFactor = 0f;
+            LastSpellLog = "AutoCastFailed";
+            Debug.Log("[Spell] AutoCastFailed | chant lifecycle ended");
+        }
+
         public void LogMatched(SpellDefinition spell, float damageFactor, string accuracy)
         {
             float damage = spell.BaseDamage * damageFactor;

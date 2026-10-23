@@ -344,3 +344,27 @@ flowchart TD
   - 1/4 拍说明：`Chant 0 + Cast 0.25` → `QuarterBeat_Test` 仍可匹配，但当前 UI 不显示 Perfect 放射线。
   - 生命周期回归：`beatFloat=0.25` 起始，`4.24` 不清，`4.25` 清空缓冲与 Marker。
 - **状态**：小步 5 补丁 **completed**。后续若要做 `1/4` 拍 UI，请另起音轨系统方案，不在当前 8 点主音轨上直接扩成 16 点。
+
+## 第 4 轮魔法完整补完 · 小步 5 补丁（施法失败反馈生命周期）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改；本补丁记录在跟进文档中。
+- **本轮目标**：完善“没有正确咏唱和施法”的失败反馈。施法失败 / 空施法都清缓存、开短 CD，并让屏幕输入节拍 UI 有明确清屏规则；成功施法和正常队列仍保留队首一圈生命周期。
+- **规则澄清**：
+  - `MatchFailed`：清空输入缓存，但不立刻清队列 UI；黄 Chant + 黑 Cast 先可见。
+  - 失败 CD 与 UI 清屏延迟分离：`failedCastCooldownBeats=0.25`，`failedInputMarkerClearDelayBeats=0.5`。
+  - CD 后第一次 `Chant`：如果失败残留 UI 还在，先清旧 UI，再生成新 Chant。
+  - 空施法：短效黑 Cast 显示 `0.5` 拍；输入 CD 只有 `0.25` 拍。
+  - 队尾虚拟 Cast：首个有效 Chant 后若一圈内未手动 Cast，到 `headBeatFloat + 4` 自动触发 `AutoCastFailed`，清缓存、清 UI、开 CD；虚拟 Cast 不加入 `RhythmInputEntry`，不参与匹配。
+- **改动摘要**：
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：`MatchFailed` 分支改为 `Clear(notify:false)`，避免同帧删掉刚生成的黑 Cast。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：新增失败 CD、失败 UI 清屏延迟、失败残留状态、队尾自动失败；暴露 `HasFailedInputMarkersPendingClear`、`FailedCastCooldownSeconds`、`FailedInputMarkerClearDelaySeconds`。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：新增 `ClearAllInputMarkers()`，统一清队列 Marker 与短效 Marker。
+  - `Assets/Scripts/Spell/SpellCaster.cs`：新增 `LogAutoCastFailed()`，区分超时自动失败。
+- **MCP 验收**：Play 模式自动化通过，Console 最终无错误无警告。
+  - 手动失败：`Chant 0 + Cast 0.5` → `MatchFailed`，`BufferCount=0`，`QueueMarkerCount>=2`，末点 `Cast`，CD 生效。
+  - CD / 清屏分离：失败后 `0.26` 拍 CD 结束但 UI 仍在；此时 `Chant` 会先清旧 UI，再生成新 Chant。
+  - 失败短延迟清屏：失败后推进到 `0.5` 拍，队列 Marker 清空。
+  - 空施法：无咏唱 `Cast` → `EmptyCastPenalty`，短效黑 Cast=1，`0.25` 拍 CD 后可输入，`0.5` 拍 UI 清空。
+  - 队尾虚拟 Cast：`Chant 0` 后不 Cast，`3.99` 缓存/UI 仍在，`4.0` → `AutoCastFailed`，缓存/UI 清空，CD 开启。
+  - 成功回归：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，无失败 CD，`ActiveBeatPulseCount=1`。
+- **状态**：施法失败反馈生命周期补丁 **completed**。

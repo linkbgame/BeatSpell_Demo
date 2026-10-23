@@ -11,6 +11,8 @@ namespace BeatSpell.UI
     public class DiamondBeatTrackView : MonoBehaviour
     {
         [SerializeField] private BeatClock beatClock;
+        [Tooltip("勾选后在顶点切换时输出 [Track] BeatVertex=...")]
+        [SerializeField] private bool logBeatVertexChanges;
         [SerializeField] private float diamondRadius = 360f;
         [Tooltip("上侧两条边沿菱形外法线外移，使实心边落在光晕外侧。")]
         [SerializeField] private float topEdgeOutwardOffset = 18f;
@@ -118,7 +120,15 @@ namespace BeatSpell.UI
                 }
             }
 
-            Debug.Log($"[Track] BeatVertex={next} ({BeatTimingInfo.VertexName(next)})");
+            if (logBeatVertexChanges)
+            {
+                Debug.Log($"[Track] BeatVertex={next} ({BeatTimingInfo.VertexName(next)})");
+            }
+        }
+
+        public void SetLogBeatVertexChanges(bool enabled)
+        {
+            logBeatVertexChanges = enabled;
         }
 
         public bool IsBeatPulseActive(int vertexIndex)

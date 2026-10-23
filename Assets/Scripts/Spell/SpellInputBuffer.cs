@@ -113,7 +113,7 @@ namespace BeatSpell.Spell
                 return SpellBufferResult.Matched;
             }
 
-            Clear();
+            Clear(notify: false);
             caster?.LogMatchFailed();
             return SpellBufferResult.MatchFailed;
         }

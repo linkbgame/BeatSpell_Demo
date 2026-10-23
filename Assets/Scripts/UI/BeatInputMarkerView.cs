@@ -192,6 +192,19 @@ namespace BeatSpell.UI
             Debug.Log("[Track] TransientCastCleared");
         }
 
+        public void ClearAllInputMarkers()
+        {
+            ClearMarkers();
+            ClearTransientMarkers();
+            LastMarkerKind = string.Empty;
+            LastMarkerPosition = Vector2.zero;
+            LastQueueMarkerHasRays = false;
+            LastQueueMarkerGrade = string.Empty;
+            LastQueueMarkerPromptGrade = string.Empty;
+            LastPromptAnchorBeatFloat = 0f;
+            LastPromptAnchorPosition = Vector2.zero;
+        }
+
         private void Subscribe()
         {
             if (bootstrap == null)
