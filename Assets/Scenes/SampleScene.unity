@@ -207,6 +207,8 @@ MonoBehaviour:
   spellCaster: {fileID: 404296588}
   spellCatalog:
   - {fileID: 11400000, guid: fcb6e6d1fc138224bb7f95fcfe26da6b, type: 2}
+  - {fileID: 11400000, guid: 7e4a1c9b2d8f46a3b5c0e1f2a3b4c5d6, type: 2}
+  - {fileID: 11400000, guid: 9f6b2d0c3e1a57b4c8d1e2f3a4b5c6d7, type: 2}
   battleGameManager: {fileID: 404296589}
   markerView: {fileID: 0}
   chantLifetimeBeats: 4

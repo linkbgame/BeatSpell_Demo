@@ -68,10 +68,10 @@ namespace BeatSpell.Spell
             IReadOnlyList<SpellDefinition> spellCatalog,
             SpellCaster caster)
         {
-            int intervalBeats = 0;
+            float intervalBeats = 0f;
             if (entries.Count > 0)
             {
-                intervalBeats = timing.BeatIndex - entries[entries.Count - 1].BeatIndex;
+                intervalBeats = timing.BeatFloat - entries[entries.Count - 1].BeatFloat;
             }
 
             if (!hasLifecycle)
@@ -87,7 +87,8 @@ namespace BeatSpell.Spell
                 timing.VertexIndex,
                 timing.DeltaMs,
                 intervalBeats,
-                timing.DspTime);
+                timing.DspTime,
+                timing.BeatFloat);
             entries.Add(entry);
             OnEntryAdded?.Invoke(entry);
 

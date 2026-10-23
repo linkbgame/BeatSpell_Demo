@@ -95,6 +95,7 @@ flowchart TD
   - `SpellCaster`：执行伤害、动画和反馈。
   - 第 2 轮实测：`Fireball_Lv1` 为 `Chant → 1拍 → Cast`；MCP 用例 1–5 通过（Matched 1.0 / Matched 0.8 / ChantBroken / MatchFailed / SequenceInvalid）。
   - 第 4 轮补完：允许多段 Chant；首个有效咏唱的 dsp 起算 `chantLifetimeBeats=4`；空 Cast 触发 `emptyCastPenaltyBeats=0.5` 封锁。MCP 用例 A–G 通过。
+  - 第 4 轮小步 3：配方间隔改为 `float[]`，`matchToleranceBeats=0.125`；`Fireball_Lv1` / `HalfBeat_Test` / `QuarterBeat_Test` 已挂到 `spellCatalog`。
 - 玩家系统
   - `PlayerCombatController`：整合输入、咏唱状态、施法结果。
   - `PlayerHealth`：管理玩家生命值。
@@ -257,3 +258,27 @@ flowchart TD
   - 查询：`QueueMarkerCount` / `TransientMarkerCount`
   - MCP：B Weak 入队 queue=1 transient=0；Ia 空 Cast transient=1 queue=0；Ib 封锁内不增 Marker；Ic 推进 `EmptyCastPenaltySeconds` 后 transient=0；火焰回归 Matched 20→10
   - **状态**：completed。下一步：小步 3 小数拍配方匹配。
+
+## 第 4 轮魔法完整补完 · 小步 3（小数拍配方 + 容差匹配）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 不得修改。
+- **本轮目标**：魔法配方支持 `0.5` / `0.25` 拍间隔；实际间隔用 `BeatFloat` 差值；`SpellMatcher` 按 `matchToleranceBeats`（默认 0.125）容差匹配。
+- **改动摘要**：
+  - `Assets/Scripts/Spell/RhythmInputEntry.cs`：增加 `BeatFloat`，`IntervalBeatsFromPrevious` 改为 `float`
+  - `Assets/Scripts/Spell/SpellDefinition.cs`：`intervalsBetweenSteps` 改为 `float[]`，新增 `matchToleranceBeats=0.125`
+  - `Assets/Scripts/Spell/SpellInputBuffer.cs`：相邻间隔改为 `timing.BeatFloat - previous.BeatFloat`
+  - `Assets/Scripts/Spell/SpellMatcher.cs`：`abs(actual - expected) <= tolerance`
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：`SimulateStepAtBeatFloat`、`LastMatchedSpellId`、`LastDamageFactor`
+  - `Assets/Data/Spells/Fireball_Lv1.asset`：间隔 `1.0`，容差 `0.125`
+  - `Assets/Data/Spells/HalfBeat_Test.asset`：`Chant -> 0.5 -> Chant -> 0.5 -> Cast`
+  - `Assets/Data/Spells/QuarterBeat_Test.asset`：`Chant -> 0.25 -> Cast`
+  - `Assets/Scenes/SampleScene.unity`：`spellCatalog` 绑定上述 3 个配方
+- **MCP 验收**：Play 模式 C / E / F / G + 火焰回归通过。前缀 `[Beat]` / `[Spell]`。
+  - C：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，血量 20→10
+  - E：`Chant 0 + Chant 0.5 + Cast 1.0` → `Matched HalfBeat_Test`
+  - F：`Chant 0 + Cast 0.25` → `Matched QuarterBeat_Test`
+  - G：`Chant 0 + Cast 0.5` 超出 0.25±0.125 → `MatchFailed`，无 `ChantBroken`，缓冲清空
+  - 回归：`Chant 0 + Cast 1` 仍 `Matched Fireball`，20→10
+- **状态**：小步 3 **completed**。
+- **Inspector**：三个配方资产上的 `matchToleranceBeats=0.125`；`RhythmPrototype.spellCatalog` 应看到 3 项。
+- **新问题**：半拍 / 1/4 拍输入相对最近整数拍偏差大，当前仍记为 `Weak`，`SpellMatcher` 会把伤害打成 0。这是小步 4 的范围，匹配本身已成功。

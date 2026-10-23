@@ -47,6 +47,11 @@ namespace BeatSpell.Prototype
         public int QueueMarkerCount => markerView != null ? markerView.QueueMarkerCount : 0;
         public int TransientMarkerCount => markerView != null ? markerView.TransientMarkerCount : 0;
         public string LastSpellLog => spellCaster != null ? spellCaster.LastSpellLog : string.Empty;
+        public string LastMatchedSpellId =>
+            spellCaster != null && spellCaster.LastMatchedSpell != null
+                ? spellCaster.LastMatchedSpell.SpellId
+                : string.Empty;
+        public float LastDamageFactor => spellCaster != null ? spellCaster.LastDamageFactor : 0f;
         public float ChantLifetimeSeconds => chantLifetimeBeats * ResolveSecondsPerBeat();
         public float EmptyCastPenaltySeconds => emptyCastPenaltyBeats * ResolveSecondsPerBeat();
 
@@ -104,6 +109,24 @@ namespace BeatSpell.Prototype
             }
 
             return ProcessInput(type, beatClock.GetTimingForBeatIndex(beatIndex, offsetMs));
+        }
+
+        /// <summary>
+        /// MCP 小步 3：按连续拍位置输入，用于 0.5 / 0.25 拍配方验收。
+        /// </summary>
+        public BeatTimingGrade SimulateStepAtBeatFloat(BeatInputType type, float beatFloat)
+        {
+            if (beatClock == null)
+            {
+                return BeatTimingGrade.Miss;
+            }
+
+            if (!beatClock.IsRunning)
+            {
+                beatClock.StartClock();
+            }
+
+            return ProcessInput(type, beatClock.GetTimingForBeatFloat(beatFloat));
         }
 
         /// <summary>

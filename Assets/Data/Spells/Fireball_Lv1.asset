@@ -21,4 +21,6 @@ MonoBehaviour:
     recipeVertex: 0
   - inputType: 1
     recipeVertex: 1
-  intervalsBetweenSteps: 01000000
+  intervalsBetweenSteps:
+  - 1
+  matchToleranceBeats: 0.125

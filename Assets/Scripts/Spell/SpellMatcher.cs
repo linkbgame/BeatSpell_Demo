@@ -1,10 +1,11 @@
 using System.Collections.Generic;
 using BeatSpell.Rhythm;
+using UnityEngine;
 
 namespace BeatSpell.Spell
 {
     /// <summary>
-    /// 匹配输入类型序列 + 相邻拍间隔（精确整数）。第 2 轮不强制顶点。
+    /// 匹配输入类型序列 + 相邻小数拍间隔。间隔差值不超过 matchToleranceBeats 即成功。
     /// </summary>
     public static class SpellMatcher
     {
@@ -22,12 +23,13 @@ namespace BeatSpell.Spell
                 return false;
             }
 
-            int[] intervals = spell.IntervalsBetweenSteps;
+            float[] intervals = spell.IntervalsBetweenSteps;
             if (intervals == null || intervals.Length != steps.Length - 1)
             {
                 return false;
             }
 
+            float tolerance = Mathf.Max(0f, spell.MatchToleranceBeats);
             for (int i = 0; i < steps.Length; i++)
             {
                 RhythmInputEntry entry = buffer[i];
@@ -36,7 +38,7 @@ namespace BeatSpell.Spell
                     return false;
                 }
 
-                if (i > 0 && entry.IntervalBeatsFromPrevious != intervals[i - 1])
+                if (i > 0 && Mathf.Abs(entry.IntervalBeatsFromPrevious - intervals[i - 1]) > tolerance)
                 {
                     return false;
                 }

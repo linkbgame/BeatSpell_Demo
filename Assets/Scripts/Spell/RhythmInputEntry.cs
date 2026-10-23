@@ -11,8 +11,9 @@ namespace BeatSpell.Spell
         public readonly BeatTimingGrade Grade;
         public readonly int BeatIndex;
         public readonly int VertexIndex;
+        public readonly float BeatFloat;
         public readonly float DeltaMs;
-        public readonly int IntervalBeatsFromPrevious;
+        public readonly float IntervalBeatsFromPrevious;
         public readonly double DspTime;
 
         public RhythmInputEntry(
@@ -21,8 +22,9 @@ namespace BeatSpell.Spell
             int beatIndex,
             int vertexIndex,
             float deltaMs,
-            int intervalBeatsFromPrevious,
-            double dspTime = 0d)
+            float intervalBeatsFromPrevious,
+            double dspTime = 0d,
+            float beatFloat = float.NaN)
         {
             InputType = inputType;
             Grade = grade;
@@ -31,6 +33,7 @@ namespace BeatSpell.Spell
             DeltaMs = deltaMs;
             IntervalBeatsFromPrevious = intervalBeatsFromPrevious;
             DspTime = dspTime;
+            BeatFloat = float.IsNaN(beatFloat) ? beatIndex : beatFloat;
         }
     }
 }
