@@ -16,6 +16,8 @@ namespace BeatSpell.UI
         [SerializeField] private float diamondRadius = 360f;
         [Tooltip("上侧两条边沿菱形外法线外移，使实心边落在光晕外侧。")]
         [SerializeField] private float topEdgeOutwardOffset = 18f;
+        [Tooltip("新 *_new 贴图满画布、旧图有透明边时，用约 0.83 对齐旧版视觉占比；满画布新美术可调到 1。")]
+        [SerializeField] private float spriteContentScale = 0.832f;
         [SerializeField] private RectTransform glowRect;
         [SerializeField] private RectTransform[] edgeRects = new RectTransform[4];
         [SerializeField] private RectTransform[] midpointRects = new RectTransform[4];
@@ -163,9 +165,10 @@ namespace BeatSpell.UI
             };
 
             float side = r * Mathf.Sqrt(2f);
-            cachedVertexSize = side * 0.20f;
-            float midSize = side * 0.09f;
-            float edgeThickness = side * 0.05f;
+            float scale = Mathf.Max(0.5f, spriteContentScale);
+            cachedVertexSize = side * 0.20f * scale;
+            float midSize = side * 0.09f * scale;
+            float edgeThickness = side * 0.05f * scale;
 
             if (glowRect != null)
             {

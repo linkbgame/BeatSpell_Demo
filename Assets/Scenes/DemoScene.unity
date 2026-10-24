@@ -257,7 +257,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_Resource: {fileID: 8300000, guid: 04cea6d47821cea4fa0441c63de9fc89, type: 3}
+  m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
@@ -614,17 +614,37 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1642161050}
     m_Modifications:
+    - target: {fileID: 1121450819583079592, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1279717983382969562, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 1604720265831699583, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: bootstrap
       value: 
       objectReference: {fileID: 404296583}
+    - target: {fileID: 2328613619387796857, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2457603544159142075, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 200
       objectReference: {fileID: 0}
+    - target: {fileID: 3069886932592960278, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 3550637836044184281, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3550637836044184281, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Material
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 4185319971838797256, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Name
@@ -637,10 +657,18 @@ PrefabInstance:
     - target: {fileID: 5562268525925619664, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Sprite
       value: 
-      objectReference: {fileID: 21300000, guid: af7c4e25c2930034fb46da7bd122a2fb, type: 3}
+      objectReference: {fileID: 21300000, guid: 0e032a305520ca54ba1606d6af2119d5, type: 3}
+    - target: {fileID: 5866713950972988888, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Material
+      value: 
+      objectReference: {fileID: 0}
     - target: {fileID: 6175179557205079651, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6175179557205079651, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Material
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 8451468210017656206, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Pivot.x
@@ -725,6 +753,10 @@ PrefabInstance:
     - target: {fileID: 8767812326301358927, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Enabled
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8767812326301358927, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_Material
+      value: 
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

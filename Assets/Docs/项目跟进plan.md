@@ -368,3 +368,22 @@ flowchart TD
   - 队尾虚拟 Cast：`Chant 0` 后不 Cast，`3.99` 缓存/UI 仍在，`4.0` → `AutoCastFailed`，缓存/UI 清空，CD 开启。
   - 成功回归：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，无失败 CD，`ActiveBeatPulseCount=1`。
 - **状态**：施法失败反馈生命周期补丁 **completed**。
+
+### BeatTrack `*_new` 素材换绑（2026-03-24）
+
+- **本轮目标**：将菱形音轨 Prefab 六类 Sprite 切到 `Assets/Art/UI/BeatTrack/Sprites/*_new`，保留 `track_glow_ring.png`。
+- **改动摘要**：
+  - 六个 `*_new.png.meta`：Single、Full Rect、Center Pivot、PPU 100；`track_edge_new` Max Size 4096。
+  - `Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`：Image / `BeatInputMarkerView` Sprite 引用改绑新 GUID；BeatPulse 仍用 `BeatPulsePremultiplied.mat`。
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：新增 `spriteContentScale`（Prefab 默认 0.832）。
+  - `track_vertex_beat_new.png`：预乘 Alpha + 放射线末端去雾。
+  - `Assets/Docs/BeatTrack_ArtSpec.md`：补充 `*_new` 清单与导入说明。
+- **MCP 验收**（Play + `Unity_RunCommand`）：
+  - 编译：Console **0 Error**。
+  - 资源：`track_*_new` 六张 Load OK（edge 3825×134 @ PPU 100）。
+  - 用例 **A**：`ActiveBeatPulseCount=1`，`IsBeatPulseActive(VertexIndex)=True` → PASS。
+  - 用例 **B**：`Chant 0/0` → `QueueMarkerCount=1` → PASS。
+  - 用例 **H**：`Chant beatFloat=0.25` → `HeadBufferBeatFloat=0.25` → PASS。
+  - 用例 **I**：无咏唱 `Cast` → `Transient=1`、`Queue=0`、`Blocked=True` → PASS。
+  - **目视**：上/左蓝边朝外仍依赖 `PlaceEdges` index 0/3 的 `localScale.y=-1`（换边图后请在 Game 视图确认一次）。
+- **遗留**：旧版 `track_*.png` 仍留目录作回滚；长期可压 `track_edge_new` 宽度 ≤2048 以减包体。

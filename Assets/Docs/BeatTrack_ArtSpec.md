@@ -53,4 +53,19 @@
 | `track_marker_cast.png` | 256×256 | 黑实心 + 青蓝包边 |
 | `track_glow_ring.png` | 512×512 | 背后同心光晕（可选） |
 
+### 正式绑定（`*_new`，2026-03）
+
+`DiamondBeatTrack.prefab` 已指向下列资源；导入：**Single**、**Full Rect**、Pivot **Center**、PPU **100**。`track_edge_new` 平台 Max Size **4096**（原图宽 3825）。`track_glow_ring.png` 仍为旧资源。
+
+| 文件 | 像素 | 用途 |
+|------|------|------|
+| `track_edge_new.png` | 3825×134 | 菱形四边条带 |
+| `track_midpoint_new.png` | 741×741 | 边中点 |
+| `track_vertex_idle_new.png` | 740×741 | 顶点 idle |
+| `track_vertex_beat_new.png` | 741×741 | 当前拍 BeatPulse；**PMA 贴图** + `BeatPulsePremultiplied` 材质 |
+| `track_marker_chant_new.png` | 741×741 | 咏唱留痕 |
+| `track_marker_cast_new.png` | 741×742 | 施法留痕 |
+
+布局：`DiamondBeatTrackView.spriteContentScale` 默认 **0.832**（新图满画布，对齐旧版约 83% 画内占比）。可调至 1 若美术加透明边。
+
 预制体：`Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`
