@@ -354,7 +354,7 @@ flowchart TD
   - 失败 CD 与 UI 清屏延迟分离：`failedCastCooldownBeats=0.25`，`failedInputMarkerClearDelayBeats=0.5`。
   - CD 后第一次 `Chant`：如果失败残留 UI 还在，先清旧 UI，再生成新 Chant。
   - 空施法：短效黑 Cast 显示 `0.5` 拍；输入 CD 只有 `0.25` 拍。
-  - 队尾虚拟 Cast：首个有效 Chant 后若一圈内未手动 Cast，到 `headBeatFloat + 4` 自动触发 `AutoCastFailed`，清缓存、清 UI、开 CD；虚拟 Cast 不加入 `RhythmInputEntry`，不参与匹配。
+  - 队尾虚拟 Cast（历史实现）：首个有效 Chant 后若一圈内未手动 Cast，到 `headBeatFloat + 4` 自动触发 `AutoCastFailed`，清缓存、清 UI、开 CD；虚拟 Cast 不加入 `RhythmInputEntry`，不参与匹配。后续“施法失败与连续输入换圈”将改为：虚拟失败可播放动画/音效，但连续 `Chant` 可取消失败动画并作为下一圈队首。
 - **改动摘要**：
   - `Assets/Scripts/Spell/SpellInputBuffer.cs`：`MatchFailed` 分支改为 `Clear(notify:false)`，避免同帧删掉刚生成的黑 Cast。
   - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：新增失败 CD、失败 UI 清屏延迟、失败残留状态、队尾自动失败；暴露 `HasFailedInputMarkersPendingClear`、`FailedCastCooldownSeconds`、`FailedInputMarkerClearDelaySeconds`。
@@ -365,7 +365,7 @@ flowchart TD
   - CD / 清屏分离：失败后 `0.26` 拍 CD 结束但 UI 仍在；此时 `Chant` 会先清旧 UI，再生成新 Chant。
   - 失败短延迟清屏：失败后推进到 `0.5` 拍，队列 Marker 清空。
   - 空施法：无咏唱 `Cast` → `EmptyCastPenalty`，短效黑 Cast=1，`0.25` 拍 CD 后可输入，`0.5` 拍 UI 清空。
-  - 队尾虚拟 Cast：`Chant 0` 后不 Cast，`3.99` 缓存/UI 仍在，`4.0` → `AutoCastFailed`，缓存/UI 清空，CD 开启。
+  - 队尾虚拟 Cast（历史验收）：`Chant 0` 后不 Cast，`3.99` 缓存/UI 仍在，`4.0` → `AutoCastFailed`，缓存/UI 清空，CD 开启。当前待开发补完会保留虚拟失败反馈，但允许后续 `Chant` 取消失败动画并开启下一圈。
   - 成功回归：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，无失败 CD，`ActiveBeatPulseCount=1`。
 - **状态**：施法失败反馈生命周期补丁 **completed**。
 
@@ -415,3 +415,29 @@ flowchart TD
 - **用法**：根对象设 `Edge Strip Length = 450`；若要与顶点严丝合缝，配合 `diamondRadius ≈ 450/√2`。
 - **MCP 验收**：450 与 0 回归见本轮 Console `[Track]`。
 - **状态**：**completed**。
+
+## 第 4 轮后续补完 · 施法失败与连续输入换圈（待开发）
+
+- **当前计划文档**：`C:\Users\llrb\.cursor\plans\施法失败与换圈_4115740f.plan.md`
+- **冻结基准**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍只读，不修改；本节作为跟进真源记录新增需求。
+- **本轮目标**：
+  - 连续咏唱跨圈：队首一圈结束时触发一瞬间虚拟 Cast 失败反馈；后续 `Chant` 在动画层取消失败动作并成为下一圈队首，失败音效继续播完。
+  - 一圈未施法：如果生命周期内没有主动 `Cast`，队尾触发虚拟 Cast 失败事件，驱动角色施法失败动画和音效；这不是 `Chant` 失败。
+  - 连续施法失败替换：空施法、错误配方 `MatchFailed`、虚拟 Cast 失败后，下一次 `Cast` 先清旧 Buffer 和旧 UI，再显示当前 Cast 失败反馈，避免多个黑色施法 Marker 同屏。
+- **建议改动路径**：
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：拆分输入感知生命周期、虚拟 Cast 失败事件、失败残留替换、`chantRolloverGraceBeats`。
+  - `Assets/Scripts/Spell/SpellCaster.cs`：新增或语义化 `LogVirtualCastFailed` / `OnVirtualCastFailed`，后续供动画与音效订阅。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：沿用 `ClearAllInputMarkers()`，确保失败残留被下一次 Cast 替换。
+- **动画 / 音效规则**：
+  - 失败动画：由虚拟 Cast 失败或真实 Cast 失败触发；后续 `Chant` 进入咏唱动画时可以立即打断失败动画。
+  - 失败音效：使用一次性播放方式（如独立 AudioSource / PlayOneShot），不随动画取消而停止。
+- **参数建议**：
+  - `chantRolloverGraceBeats=0.125` 起步，用于识别 `head + 4` 附近的下一次 `Chant` 是否作为下一圈队首；它不负责关闭失败反馈。
+  - `failedCastCooldownBeats=0.1~0.25` 控制失败后连续施法节奏。
+  - `failedInputMarkerClearDelayBeats=0.3~0.5` 保留失败反馈可见时间；代码层应通过“下一次 Cast 替换旧残留”避免同屏叠两个 Cast Marker。
+- **MCP 验收待跑**：
+  - `Chant 0 -> Chant 4.0`：虚拟 Cast 失败日志触发一次；随后新 `Chant` 成为队首，`BufferCount=1`，`HeadBufferBeatFloat≈4.0`，失败动画可被取消，音效不停止。
+  - `Chant 0 -> Evaluate 4.0` 且无后续输入：触发虚拟 Cast 失败，Buffer 与 Marker 清空。
+  - `Cast 0 -> Cast 0.x`：第二次 Cast 前旧失败残留被清掉，最终 `TransientMarkerCount=1`，不会同屏显示两个 Cast Marker。
+  - `Chant 0 -> Cast 0.5 -> Cast`：`MatchFailed` 后再次 Cast 清旧队列 UI，仅保留当前 Cast 失败反馈，`BufferCount=0`。
+- **状态**：pending；完成后需 UnityMCP 编译门禁 + 用例通过，再把本节状态更新为 completed。
