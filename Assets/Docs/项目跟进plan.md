@@ -387,3 +387,31 @@ flowchart TD
   - 用例 **I**：无咏唱 `Cast` → `Transient=1`、`Queue=0`、`Blocked=True` → PASS。
   - **目视**：上/左蓝边朝外仍依赖 `PlaceEdges` index 0/3 的 `localScale.y=-1`（换边图后请在 Game 视图确认一次）。
 - **遗留**：旧版 `track_*.png` 仍留目录作回滚；长期可压 `track_edge_new` 宽度 ≤2048 以减包体。
+
+### RefPhoto 音轨视觉对齐 · 布局可调（2026-10-24）
+
+- **本轮目标**：对照 `Assets/Docs/RefPhoto`，用现有 `*_new` 与 Inspector 比例微调边/顶点/边中点/BeatPulse/留痕尺寸；玩法与节点组成不变。
+- **改动摘要**：
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：`vertexSizeRatio`、`midpointSizeRatio`、`edgeThicknessRatio`、`inputMarkerSizeRatio`、`beatPulseSizeRatio`；`OnValidate` → `ApplyLayout`（Edit Mode 预览）；BeatPulse 可相对顶点独立缩放。
+  - `Assets/Docs/RefPhoto/菱形音轨视觉对齐plan.md`：RefPhoto 对照与调参顺序。
+- **MCP 验收**：待 Play 目视 + 改比例 Edit Mode 刷新；Console 前缀 `[Track]` 行为与换绑轮一致。
+- **状态**：布局可调 **completed**（数值需作者按 RefPhoto 自行调到满意）。
+
+### 上边特殊处理移除（2026-10-24）
+
+- **本轮目标**：左上/右上边与下两条边规则一致，仅保留 ±45° 旋转与几何中点定位；撤销第 4 轮补丁中的外移与 Y 镜像。
+- **改动摘要**：
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：删除 `topEdgeOutwardOffset`、`PlaceEdges` 内 index 0/3 的 `localScale.y=-1`、`GetEdgeOutwardNormal`；`GetEdgeCenter` 仅 `(a+b)/2`。
+  - `Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`：移除 `topEdgeOutwardOffset` 序列化。
+  - `Assets/Docs/RefPhoto/菱形音轨视觉对齐plan.md`：去掉 `topEdgeOutwardOffset` 调参项。
+- **说明**：历史迭代仍保留「上侧边外移 / flip」描述作考古；当前真源以本小节为准。若亮边朝向不满意，改 `track_edge_new` 或布局比例，不再用代码 offset/flip。
+- **MCP 验收**：编译通过；`ApplyLayout` 后四条 `Edge_*` 的 `localScale` 均为 1；Play 用例 A/B 与 `[Track]` 无回归。
+- **状态**：上边对称 **completed**。
+
+### 边条长度可配置 edgeStripLength（2026-10-24）
+
+- **本轮目标**：四条边 `sizeDelta.x` 可在根组件固定（如 450），避免 Play 时 `ApplyLayout` 覆盖子物体 Rect width。
+- **改动摘要**：`DiamondBeatTrackView.edgeStripLength`（0=自动 side，>0 固定）；Prefab 默认 0；RefPhoto 对齐 plan 补充字段说明。
+- **用法**：根对象设 `Edge Strip Length = 450`；若要与顶点严丝合缝，配合 `diamondRadius ≈ 450/√2`。
+- **MCP 验收**：450 与 0 回归见本轮 Console `[Track]`。
+- **状态**：**completed**。

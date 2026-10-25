@@ -14,10 +14,20 @@ namespace BeatSpell.UI
         [Tooltip("勾选后在顶点切换时输出 [Track] BeatVertex=...")]
         [SerializeField] private bool logBeatVertexChanges;
         [SerializeField] private float diamondRadius = 360f;
-        [Tooltip("上侧两条边沿菱形外法线外移，使实心边落在光晕外侧。")]
-        [SerializeField] private float topEdgeOutwardOffset = 18f;
         [Tooltip("新 *_new 贴图满画布、旧图有透明边时，用约 0.83 对齐旧版视觉占比；满画布新美术可调到 1。")]
         [SerializeField] private float spriteContentScale = 0.832f;
+
+        [Header("相对边长比例（见 BeatTrack_ArtSpec / RefPhoto）")]
+        [SerializeField] private float vertexSizeRatio = 0.20f;
+        [SerializeField] private float midpointSizeRatio = 0.09f;
+        [SerializeField] private float edgeThicknessRatio = 0.05f;
+        [Tooltip("四条边 Rect 长度（sizeDelta.x）。0 表示自动使用 diamondRadius×√2；>0 固定边条长度（如 450）。")]
+        [SerializeField] private float edgeStripLength;
+        [Tooltip("输入留痕直径 ≈ 顶点直径 × 本系数（BeatInputMarkerView 读取 MarkerSize）。")]
+        [SerializeField] private float inputMarkerSizeRatio = 0.85f;
+        [Tooltip("当前拍 BeatPulse 相对顶点 Rect 的缩放；1 与 idle 圈同大。")]
+        [SerializeField] private float beatPulseSizeRatio = 1f;
+
         [SerializeField] private RectTransform glowRect;
         [SerializeField] private RectTransform[] edgeRects = new RectTransform[4];
         [SerializeField] private RectTransform[] midpointRects = new RectTransform[4];
@@ -31,7 +41,7 @@ namespace BeatSpell.UI
 
         public int ActiveBeatVertex { get; private set; }
         public float DiamondRadius => diamondRadius;
-        public float MarkerSize => cachedVertexSize * 0.85f;
+        public float MarkerSize => cachedVertexSize * Mathf.Max(0.1f, inputMarkerSizeRatio);
 
         /// <summary>
         /// 当前激活的白点数量，验收用：应始终为 0 或 1。
@@ -166,9 +176,10 @@ namespace BeatSpell.UI
 
             float side = r * Mathf.Sqrt(2f);
             float scale = Mathf.Max(0.5f, spriteContentScale);
-            cachedVertexSize = side * 0.20f * scale;
-            float midSize = side * 0.09f * scale;
-            float edgeThickness = side * 0.05f * scale;
+            cachedVertexSize = side * Mathf.Max(0.01f, vertexSizeRatio) * scale;
+            float midSize = side * Mathf.Max(0.01f, midpointSizeRatio) * scale;
+            float edgeThickness = side * Mathf.Max(0.01f, edgeThicknessRatio) * scale;
+            float edgeLen = edgeStripLength > 0f ? edgeStripLength : side;
 
             if (glowRect != null)
             {
@@ -176,7 +187,7 @@ namespace BeatSpell.UI
                 glowRect.sizeDelta = new Vector2(r * 2.4f, r * 2.4f);
             }
 
-            PlaceEdges(cachedVertices, side, edgeThickness);
+            PlaceEdges(cachedVertices, edgeLen, edgeThickness);
             PlaceMidpoints(cachedVertices, midSize);
             PlaceVertices(cachedVertices, cachedVertexSize);
         }
@@ -199,7 +210,7 @@ namespace BeatSpell.UI
             ApplyLayout();
         }
 
-        private void PlaceEdges(Vector2[] vertices, float side, float thickness)
+        private void PlaceEdges(Vector2[] vertices, float stripLength, float thickness)
         {
             // 0=TopRight, 1=BottomRight, 2=BottomLeft, 3=TopLeft
             float[] angles = { -45f, 45f, -45f, 45f };
@@ -215,10 +226,8 @@ namespace BeatSpell.UI
 
                 edgeRects[i].anchoredPosition = mid;
                 edgeRects[i].localEulerAngles = new Vector3(0f, 0f, angles[i]);
-                edgeRects[i].sizeDelta = new Vector2(side, thickness);
-                // track_edge 亮边在条带一侧；上两条边镜像 local Y，使蓝边朝菱形外侧。
-                bool flipOutward = i == 0 || i == 3;
-                edgeRects[i].localScale = flipOutward ? new Vector3(1f, -1f, 1f) : Vector3.one;
+                edgeRects[i].sizeDelta = new Vector2(stripLength, thickness);
+                edgeRects[i].localScale = Vector3.one;
             }
         }
 
@@ -276,30 +285,13 @@ namespace BeatSpell.UI
         }
 
         /// <summary>
-        /// 边条与中点共用：几何中点 + 上两条边外法线偏移（与 PlaceEdges 一致）。
+        /// 边条与中点共用：相邻顶点连线的几何中点。
         /// </summary>
-        private Vector2 GetEdgeCenter(Vector2[] vertices, int edgeIndex)
+        private static Vector2 GetEdgeCenter(Vector2[] vertices, int edgeIndex)
         {
             Vector2 a = vertices[edgeIndex];
             Vector2 b = vertices[(edgeIndex + 1) % 4];
-            Vector2 mid = (a + b) * 0.5f;
-            if (topEdgeOutwardOffset > 0f && (edgeIndex == 0 || edgeIndex == 3))
-            {
-                mid += GetEdgeOutwardNormal(edgeIndex) * topEdgeOutwardOffset;
-            }
-
-            return mid;
-        }
-
-        private static Vector2 GetEdgeOutwardNormal(int edgeIndex)
-        {
-            switch (edgeIndex)
-            {
-                case 0: return new Vector2(1f, 1f).normalized;
-                case 1: return new Vector2(1f, -1f).normalized;
-                case 2: return new Vector2(-1f, -1f).normalized;
-                default: return new Vector2(-1f, 1f).normalized;
-            }
+            return (a + b) * 0.5f;
         }
 
         private void PlaceVertices(Vector2[] vertices, float size)
@@ -313,12 +305,16 @@ namespace BeatSpell.UI
 
                 vertexRects[i].anchoredPosition = vertices[i];
                 vertexRects[i].sizeDelta = new Vector2(size, size);
-                StretchChildren(vertexRects[i]);
+                LayoutVertexChildren(vertexRects[i], size, i);
             }
         }
 
-        private static void StretchChildren(RectTransform parent)
+        private void LayoutVertexChildren(RectTransform parent, float vertexSize, int vertexIndex)
         {
+            float pulseScale = Mathf.Max(0.1f, beatPulseSizeRatio);
+            float pulseSize = vertexSize * pulseScale;
+            GameObject pulseGo = vertexIndex >= 0 && vertexIndex < beatPulses.Length ? beatPulses[vertexIndex] : null;
+
             for (int i = 0; i < parent.childCount; i++)
             {
                 RectTransform child = parent.GetChild(i) as RectTransform;
@@ -327,12 +323,40 @@ namespace BeatSpell.UI
                     continue;
                 }
 
-                child.anchorMin = Vector2.zero;
-                child.anchorMax = Vector2.one;
-                child.offsetMin = Vector2.zero;
-                child.offsetMax = Vector2.zero;
+                if (pulseGo != null && child.gameObject == pulseGo)
+                {
+                    child.anchorMin = new Vector2(0.5f, 0.5f);
+                    child.anchorMax = new Vector2(0.5f, 0.5f);
+                    child.pivot = new Vector2(0.5f, 0.5f);
+                    child.anchoredPosition = Vector2.zero;
+                    child.sizeDelta = new Vector2(pulseSize, pulseSize);
+                    continue;
+                }
+
+                StretchToParent(child);
             }
         }
+
+        private static void StretchToParent(RectTransform child)
+        {
+            child.anchorMin = Vector2.zero;
+            child.anchorMax = Vector2.one;
+            child.offsetMin = Vector2.zero;
+            child.offsetMax = Vector2.zero;
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            vertexSizeRatio = Mathf.Max(0.01f, vertexSizeRatio);
+            midpointSizeRatio = Mathf.Max(0.01f, midpointSizeRatio);
+            edgeThicknessRatio = Mathf.Max(0.01f, edgeThicknessRatio);
+            edgeStripLength = Mathf.Max(0f, edgeStripLength);
+            inputMarkerSizeRatio = Mathf.Max(0.1f, inputMarkerSizeRatio);
+            beatPulseSizeRatio = Mathf.Max(0.1f, beatPulseSizeRatio);
+            ApplyLayout();
+        }
+#endif
 
         private static float PositiveModFloat(float value, float modulo)
         {
