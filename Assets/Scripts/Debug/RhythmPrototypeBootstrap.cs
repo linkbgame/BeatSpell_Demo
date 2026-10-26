@@ -26,11 +26,13 @@ namespace BeatSpell.Prototype
         [SerializeField] private float emptyCastPenaltyBeats = 0.5f;
         [SerializeField] private float failedCastCooldownBeats = 0.25f;
         [SerializeField] private float failedInputMarkerClearDelayBeats = 0.5f;
+        [SerializeField] private float chantRolloverGraceBeats = 0.125f;
 
         private double blockedUntilDspTime;
         private double queryDspTime;
         private double failedInputMarkersClearDspTime;
         private bool hasFailedInputMarkersPendingClear;
+        private float lastVirtualCastFailedBeatFloat;
         private BeatTimingGrade lastPromptGrade = BeatTimingGrade.Weak;
         private float lastPromptAnchorBeatFloat;
         private float lastPromptDeltaMs;
@@ -78,7 +80,10 @@ namespace BeatSpell.Prototype
         public float FailedCastCooldownSeconds => failedCastCooldownBeats * ResolveSecondsPerBeat();
         public float FailedInputMarkerClearDelaySeconds => failedInputMarkerClearDelayBeats * ResolveSecondsPerBeat();
         public float ChantLifetimeSeconds => chantLifetimeBeats * ResolveSecondsPerBeat();
-        public float EmptyCastPenaltySeconds => FailedInputMarkerClearDelaySeconds;
+        public float EmptyCastPenaltySeconds => emptyCastPenaltyBeats * ResolveSecondsPerBeat();
+        public float ChantRolloverGraceBeats => chantRolloverGraceBeats;
+        public float LastVirtualCastFailedBeatFloat => lastVirtualCastFailedBeatFloat;
+        public int VirtualCastFailureCount => spellCaster != null ? spellCaster.VirtualCastFailureCount : 0;
 
         private void Awake()
         {
@@ -195,10 +200,12 @@ namespace BeatSpell.Prototype
 
         public void ResetCombat()
         {
+            CacheRefs();
             blockedUntilDspTime = 0d;
             queryDspTime = 0d;
             failedInputMarkersClearDspTime = 0d;
             hasFailedInputMarkersPendingClear = false;
+            lastVirtualCastFailedBeatFloat = 0f;
             lastPromptGrade = BeatTimingGrade.Weak;
             lastPromptAnchorBeatFloat = 0f;
             lastPromptDeltaMs = 0f;
@@ -273,17 +280,19 @@ namespace BeatSpell.Prototype
 
         private BeatTimingGrade ProcessInput(BeatInputType type, BeatTimingInfo timing)
         {
-            EvaluateLifecycle(timing);
+            EvaluateLifecycle(timing, type);
 
-            if (timing.DspTime < blockedUntilDspTime)
+            bool hadFailureResidue = hasFailedInputMarkersPendingClear;
+            bool castReplacesFailureResidue = type == BeatInputType.Cast && hadFailureResidue;
+            if (hadFailureResidue && (type == BeatInputType.Chant || type == BeatInputType.Cast))
+            {
+                ClearFailureResidue(type == BeatInputType.Cast ? "NextCast" : "NextChant");
+            }
+
+            if (timing.DspTime < blockedUntilDspTime && !castReplacesFailureResidue)
             {
                 spellCaster?.LogInputRejected();
                 return BeatTimingGrade.Miss;
-            }
-
-            if (type == BeatInputType.Chant && hasFailedInputMarkersPendingClear)
-            {
-                ClearFailedInputMarkers("NextChant");
             }
 
             if (type == BeatInputType.Cast && (spellInputBuffer == null || !spellInputBuffer.HasActiveChantLifecycle))
@@ -352,7 +361,7 @@ namespace BeatSpell.Prototype
             return promptGrade;
         }
 
-        private bool EvaluateLifecycle(BeatTimingInfo timing)
+        private bool EvaluateLifecycle(BeatTimingInfo timing, BeatInputType? incomingType = null)
         {
             queryDspTime = timing.DspTime;
             ExpireFailureInputMarkersIfNeeded(timing.DspTime);
@@ -363,12 +372,7 @@ namespace BeatSpell.Prototype
                            timing.BeatFloat >= spellInputBuffer.LifecycleStartBeatFloat + chantLifetimeBeats;
             if (expired)
             {
-                spellInputBuffer.Clear(notify: false);
-                markerView?.ClearAllInputMarkers();
-                hasFailedInputMarkersPendingClear = false;
-                failedInputMarkersClearDspTime = 0d;
-                StartFailureCooldown(timing.DspTime);
-                spellCaster?.LogAutoCastFailed();
+                TriggerVirtualCastFailed(timing, incomingType.HasValue ? incomingType.Value.ToString() : "Passive");
             }
 
             if (markerView != null)
@@ -399,6 +403,17 @@ namespace BeatSpell.Prototype
             Debug.Log($"[Track] FailedInputMarkersPendingClear life={FailedInputMarkerClearDelaySeconds:0.###}s");
         }
 
+        private void TriggerVirtualCastFailed(BeatTimingInfo timing, string reason)
+        {
+            spellInputBuffer?.Clear(notify: false);
+            markerView?.ClearAllInputMarkers();
+            lastVirtualCastFailedBeatFloat = timing.BeatFloat;
+            hasFailedInputMarkersPendingClear = true;
+            failedInputMarkersClearDspTime = timing.DspTime + FailedInputMarkerClearDelaySeconds;
+            spellCaster?.LogVirtualCastFailed();
+            Debug.Log($"[Spell] VirtualCastFailedReason | reason={reason} | beatFloat={timing.BeatFloat:0.###}");
+        }
+
         private void StartFailureCooldown(double dspTime)
         {
             blockedUntilDspTime = dspTime + FailedCastCooldownSeconds;
@@ -416,6 +431,12 @@ namespace BeatSpell.Prototype
 
         private void ClearFailedInputMarkers(string reason)
         {
+            ClearFailureResidue(reason);
+        }
+
+        private void ClearFailureResidue(string reason)
+        {
+            spellInputBuffer?.Clear(notify: false);
             markerView?.ClearAllInputMarkers();
             hasFailedInputMarkersPendingClear = false;
             failedInputMarkersClearDspTime = 0d;
@@ -457,6 +478,11 @@ namespace BeatSpell.Prototype
             if (trackView == null)
             {
                 trackView = FindFirstObjectByType<DiamondBeatTrackView>();
+            }
+
+            if (markerView != null)
+            {
+                markerView.Bind(this);
             }
 
             if (beatClock != null && trackView != null)

@@ -90,10 +90,7 @@ namespace BeatSpell.UI
 
             for (int i = 0; i < spawnedMarkers.Count; i++)
             {
-                if (spawnedMarkers[i] != null)
-                {
-                    Destroy(spawnedMarkers[i].gameObject);
-                }
+                DestroyMarkerImage(spawnedMarkers[i]);
             }
 
             spawnedMarkers.Clear();
@@ -384,7 +381,14 @@ namespace BeatSpell.UI
         {
             if (image != null)
             {
-                Destroy(image.gameObject);
+                if (Application.isPlaying)
+                {
+                    Destroy(image.gameObject);
+                }
+                else
+                {
+                    DestroyImmediate(image.gameObject);
+                }
             }
         }
 

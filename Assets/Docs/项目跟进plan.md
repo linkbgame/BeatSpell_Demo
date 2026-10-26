@@ -416,7 +416,7 @@ flowchart TD
 - **MCP 验收**：450 与 0 回归见本轮 Console `[Track]`。
 - **状态**：**completed**。
 
-## 第 4 轮后续补完 · 施法失败与连续输入换圈（待开发）
+## 第 4 轮后续补完 · 施法失败与连续输入换圈（completed）
 
 - **当前计划文档**：`C:\Users\llrb\.cursor\plans\施法失败与换圈_4115740f.plan.md`
 - **冻结基准**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍只读，不修改；本节作为跟进真源记录新增需求。
@@ -424,10 +424,10 @@ flowchart TD
   - 连续咏唱跨圈：队首一圈结束时触发一瞬间虚拟 Cast 失败反馈；后续 `Chant` 在动画层取消失败动作并成为下一圈队首，失败音效继续播完。
   - 一圈未施法：如果生命周期内没有主动 `Cast`，队尾触发虚拟 Cast 失败事件，驱动角色施法失败动画和音效；这不是 `Chant` 失败。
   - 连续施法失败替换：空施法、错误配方 `MatchFailed`、虚拟 Cast 失败后，下一次 `Cast` 先清旧 Buffer 和旧 UI，再显示当前 Cast 失败反馈，避免多个黑色施法 Marker 同屏。
-- **建议改动路径**：
-  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：拆分输入感知生命周期、虚拟 Cast 失败事件、失败残留替换、`chantRolloverGraceBeats`。
-  - `Assets/Scripts/Spell/SpellCaster.cs`：新增或语义化 `LogVirtualCastFailed` / `OnVirtualCastFailed`，后续供动画与音效订阅。
-  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：沿用 `ClearAllInputMarkers()`，确保失败残留被下一次 Cast 替换。
+- **改动摘要**：
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：拆分虚拟 Cast 失败与输入处理；新增 `chantRolloverGraceBeats`、`VirtualCastFailureCount`、`LastVirtualCastFailedBeatFloat`；失败残留统一由 `ClearFailureResidue` 清数据层与 UI；连续 `Cast` 可替换旧失败反馈。
+  - `Assets/Scripts/Spell/SpellCaster.cs`：新增 `OnVirtualCastFailed`、`LogVirtualCastFailed()`、`VirtualCastFailureCount`；`LogAutoCastFailed()` 兼容转发。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：`ClearMarkers()` 统一走安全销毁 helper，Play 用 `Destroy`，Editor/MCP 验收用 `DestroyImmediate`。
 - **动画 / 音效规则**：
   - 失败动画：由虚拟 Cast 失败或真实 Cast 失败触发；后续 `Chant` 进入咏唱动画时可以立即打断失败动画。
   - 失败音效：使用一次性播放方式（如独立 AudioSource / PlayOneShot），不随动画取消而停止。
@@ -435,9 +435,12 @@ flowchart TD
   - `chantRolloverGraceBeats=0.125` 起步，用于识别 `head + 4` 附近的下一次 `Chant` 是否作为下一圈队首；它不负责关闭失败反馈。
   - `failedCastCooldownBeats=0.1~0.25` 控制失败后连续施法节奏。
   - `failedInputMarkerClearDelayBeats=0.3~0.5` 保留失败反馈可见时间；代码层应通过“下一次 Cast 替换旧残留”避免同屏叠两个 Cast Marker。
-- **MCP 验收待跑**：
-  - `Chant 0 -> Chant 4.0`：虚拟 Cast 失败日志触发一次；随后新 `Chant` 成为队首，`BufferCount=1`，`HeadBufferBeatFloat≈4.0`，失败动画可被取消，音效不停止。
-  - `Chant 0 -> Evaluate 4.0` 且无后续输入：触发虚拟 Cast 失败，Buffer 与 Marker 清空。
-  - `Cast 0 -> Cast 0.x`：第二次 Cast 前旧失败残留被清掉，最终 `TransientMarkerCount=1`，不会同屏显示两个 Cast Marker。
-  - `Chant 0 -> Cast 0.5 -> Cast`：`MatchFailed` 后再次 Cast 清旧队列 UI，仅保留当前 Cast 失败反馈，`BufferCount=0`。
-- **状态**：pending；完成后需 UnityMCP 编译门禁 + 用例通过，再把本节状态更新为 completed。
+- **MCP 验收结果**：
+  - 编译门禁：Unity Console 最终 `0 Error / 0 Warning`。
+  - R1 `Chant 0 -> Chant 4.0`：`VirtualCastFailed` 触发 1 次；随后 `BufferCount=1`、`HeadBufferBeatFloat≈4.0`、`QueueMarkerCount=1`，PASS。
+  - R2 `Chant 0 -> EvaluateLifecycle 4.0`：无后续输入时触发 `VirtualCastFailed`，Buffer 与队列 Marker 清空，PASS。
+  - R3 `Cast 0 -> Cast 0.1`：连续空施法替换旧黑色短效 Marker，`TransientMarkerCount=1`、`QueueMarkerCount=0`、`BufferCount=0`，PASS。
+  - R4 `Chant 0 -> Cast 0.5 -> Cast 0.6`：`MatchFailed` 后再次 Cast 清旧队列 UI，仅保留当前 Cast 短效反馈，PASS。
+  - R5 火焰回归：`Chant 0 -> Cast 1` 仍 `Matched Fireball`，`damageFactor=1`，PASS。
+- **状态**：completed。动画取消和失败音效播放已暴露事件入口，后续接角色动画 / AudioSource 时订阅 `OnVirtualCastFailed`，音效使用 `PlayOneShot` 或等价一次性播放方式。
+- **MCP Edit Mode 留痕清理（2026-10-25）**：`RunCommand` 在非 Play 下会在 `DiamondBeatTrack/MarkerRoot` 持久化 `ChantMarker`/`CastMarker`；验收或调试后应 `ClearAllInputMarkers()` 并 `DestroyImmediate` 清空 `MarkerRoot` 子物体。本次清理：`childCount 10→0`，已保存 `Assets/Scenes/DemoScene.unity`。

@@ -9,16 +9,19 @@ namespace BeatSpell.Spell
     public class SpellCaster : MonoBehaviour
     {
         public event Action<SpellDefinition, float, float> OnSpellCast;
+        public event Action OnVirtualCastFailed;
 
         public SpellDefinition LastMatchedSpell { get; private set; }
         public float LastDamageFactor { get; private set; }
         public string LastSpellLog { get; private set; }
+        public int VirtualCastFailureCount { get; private set; }
 
         public void ResetLastResult()
         {
             LastMatchedSpell = null;
             LastDamageFactor = 0f;
             LastSpellLog = string.Empty;
+            VirtualCastFailureCount = 0;
         }
 
         public void LogChantBroken()
@@ -71,10 +74,17 @@ namespace BeatSpell.Spell
 
         public void LogAutoCastFailed()
         {
+            LogVirtualCastFailed();
+        }
+
+        public void LogVirtualCastFailed()
+        {
             LastMatchedSpell = null;
             LastDamageFactor = 0f;
-            LastSpellLog = "AutoCastFailed";
-            Debug.Log("[Spell] AutoCastFailed | chant lifecycle ended");
+            LastSpellLog = "VirtualCastFailed";
+            VirtualCastFailureCount++;
+            Debug.Log("[Spell] VirtualCastFailed | chant lifecycle ended");
+            OnVirtualCastFailed?.Invoke();
         }
 
         public void LogMatched(SpellDefinition spell, float damageFactor, string accuracy)

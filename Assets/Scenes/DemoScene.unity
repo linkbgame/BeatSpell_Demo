@@ -149,7 +149,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.Combat.EnemyHealth
   maxHealth: 20
-  currentHealth: 0
+  currentHealth: 20
 --- !u!4 &284597997
 Transform:
   m_ObjectHideFlags: 0
@@ -208,12 +208,13 @@ MonoBehaviour:
   spellCatalog:
   - {fileID: 11400000, guid: fcb6e6d1fc138224bb7f95fcfe26da6b, type: 2}
   battleGameManager: {fileID: 404296589}
-  markerView: {fileID: 0}
-  trackView: {fileID: 0}
+  markerView: {fileID: 734328312}
+  trackView: {fileID: 734328313}
   chantLifetimeBeats: 4
   emptyCastPenaltyBeats: 0.5
   failedCastCooldownBeats: 0.25
   failedInputMarkerClearDelayBeats: 0.5
+  chantRolloverGraceBeats: 0.125
 --- !u!114 &404296584
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -854,6 +855,10 @@ PrefabInstance:
       propertyPath: m_AnchoredPosition.y
       value: -180
       objectReference: {fileID: 0}
+    - target: {fileID: 7352057179084728630, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 7465579851410380280, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_SizeDelta.x
       value: 450
@@ -996,6 +1001,28 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 8451468210017656206, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
   m_PrefabInstance: {fileID: 704430196}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &734328312 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 1604720265831699583, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+  m_PrefabInstance: {fileID: 704430196}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee53c9afdfcd00b4cbde2571011fa9da, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.UI.BeatInputMarkerView
+--- !u!114 &734328313 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4318865478364209429, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+  m_PrefabInstance: {fileID: 704430196}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5ec9607883f41c40be45689cbac78ed, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.UI.DiamondBeatTrackView
 --- !u!1 &1642161046
 GameObject:
   m_ObjectHideFlags: 0
