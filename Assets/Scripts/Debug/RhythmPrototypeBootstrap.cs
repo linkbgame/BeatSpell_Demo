@@ -87,6 +87,18 @@ namespace BeatSpell.Prototype
         public float ChantRolloverGraceBeats => chantRolloverGraceBeats;
         public float LastVirtualCastFailedBeatFloat => lastVirtualCastFailedBeatFloat;
         public int VirtualCastFailureCount => spellCaster != null ? spellCaster.VirtualCastFailureCount : 0;
+        public int CurrentBeatAnimFrame => trackView != null ? trackView.CurrentBeatAnimFrame : 0;
+        public float CurrentBeatAnimScale => trackView != null ? trackView.CurrentBeatAnimScale : 1f;
+        public float CurrentBeatAnimWhiteAmount => trackView != null ? trackView.CurrentBeatAnimWhiteAmount : 0f;
+        public string CurrentBeatAnimFill => trackView != null ? trackView.CurrentBeatAnimFill : "Idle";
+        public bool IsCurrentBeatAnimPlaying => trackView != null && trackView.IsCurrentBeatAnimPlaying;
+        public string LastMarkerAnimKind => markerView != null ? markerView.LastMarkerAnimKind : string.Empty;
+        public string LastCastAnimVariant => markerView != null ? markerView.LastCastAnimVariant : string.Empty;
+        public string LastMarkerAnimScaleSequence =>
+            markerView != null ? markerView.LastMarkerAnimScaleSequence : string.Empty;
+        public int LastMarkerAnimFrame => markerView != null ? markerView.LastMarkerAnimFrame : 0;
+        public float LastMarkerAnimScale => markerView != null ? markerView.LastMarkerAnimScale : 1f;
+        public bool IsLastMarkerAnimPlaying => markerView != null && markerView.IsLastMarkerAnimPlaying;
 
         private void Awake()
         {
@@ -279,6 +291,35 @@ namespace BeatSpell.Prototype
         public void SetPerfectWindowMs(float perfectWindowMs)
         {
             rhythmJudge.PerfectWindowMs = perfectWindowMs;
+        }
+
+        /// <summary>
+        /// MCP：按秒推进当前拍与 Marker 帧动画，不改判定时间轴。
+        /// </summary>
+        public void TickBeatUiAnimations(float seconds)
+        {
+            trackView?.TickCurrentBeatAnimation(seconds);
+            markerView?.TickMarkerAnimations(seconds);
+        }
+
+        public void AdvanceCurrentBeatAnimFrames(int frames)
+        {
+            trackView?.AdvanceCurrentBeatAnimFrames(frames);
+        }
+
+        public void ReplayCurrentBeatAnimation()
+        {
+            trackView?.ReplayCurrentBeatAnimation();
+        }
+
+        public void AdvanceLastMarkerAnimFrames(int frames)
+        {
+            markerView?.AdvanceLastMarkerAnimFrames(frames);
+        }
+
+        public void SetNextCastAnimVariant(string variant)
+        {
+            markerView?.SetNextCastAnimVariant(variant);
         }
 
         private BeatTimingGrade ProcessInput(BeatInputType type, BeatTimingInfo timing)

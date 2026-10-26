@@ -469,3 +469,42 @@ flowchart TD
 - **资源**：Prefab 已绑 `perfect_ring`（GUID `f5c26720adced5b4887e10a0b1c02786`），`perfectRingScale=1.22`。
 - **状态**：completed。
 - **目视**：Game 视图确认圆环包在 Marker 外缘、随节拍旋转、浅色闪烁且约 25% 透明。若偏大/偏小只调 `perfectRingScale`。
+
+## 节拍 UI 帧动画（2026-10-26）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改；本补丁记录在跟进文档中。
+- **本轮目标**：按 RefPhoto 与按帧拆解，给当前节拍、咏唱留痕、施法留痕加可配置帧动画。动画只改 UI，不改 `BeatFloat`、配方匹配、队首生命周期和伤害。
+- **规则澄清**：
+  - 帧率 Inspector 可调，默认 `30 FPS`：`1f = 1 / animationFrameRate` 秒。
+  - 当前拍 6 帧：`1.6x 白底 -> 1.2x 白底 -> 1.0x 白底 -> 过渡1 -> 过渡2 -> 默认底`。BeatPulse 保持激活（`ActiveBeatPulseCount` 仍为 1），最后一帧把白底 Alpha 收到 0，露出底层 idle 顶点。
+  - 咏唱 4 帧：`1.5x -> 2.0x -> 1.3x -> 1.0x`。
+  - 施法随机两套：A `1.5x -> 2.0x -> 1.3x -> 1.0x`；B `1.5x -> 1.3x -> 1.0x`。空施法短效 Cast 也播 Cast 动画，仍不入队。
+  - Perfect Ring 作为 Marker 子物体跟随缩放，生命周期不变。
+- **可用到节拍动画的位置**（本轮只做前 4 项）：
+  - 当前节拍顶点 `BeatPulse`
+  - 咏唱队列 `ChantMarker`
+  - 入队施法 `CastMarker`
+  - 空施法短效 Cast
+  - Perfect Ring（已有旋转/闪烁，本轮只跟随缩放）
+  - 施法失败残留 Marker（生成时播一次，清理仍走失败生命周期）
+  - 虚拟 Cast 失败角色动画/音效（已有 `OnVirtualCastFailed`，本轮不接）
+  - 第 5 轮敌人节拍预警/攻击/受击
+  - 玩家咏唱/施法/失败角色动画
+  - 未来血条、Hint、侧栏技能菱形
+- **改动摘要**：
+  - `Assets/Scripts/UI/DiamondBeatTrackView.cs`：顶点切换触发 6 帧缩放 + 白底过渡；`animationFrameRate`；查询 `CurrentBeatAnimFrame/Scale/Fill`。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：Chant/Cast 帧缩放；Cast 随机 A/B；`SetNextCastAnimVariant` 供验收；查询 `LastMarkerAnim*`。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：暴露查询，并提供 `TickBeatUiAnimations` / `Advance*Frames` / `ReplayCurrentBeatAnimation`。
+- **Inspector**：
+  - `DiamondBeatTrackView.animationFrameRate` 默认 30。
+  - `BeatInputMarkerView.animationFrameRate` 默认 30。
+  - 无需新 Sprite。
+- **MCP 验收**：Play 模式自动化 **18/18 PASS**。Console 最终 **0 Error / 0 Warning**。前缀 `[Track]` / `[Beat]` / `[Spell]`。
+  - A：当前拍 6 帧 `1.6 White -> 1.2 White -> 1.0 White -> Transition1 -> Transition2 -> Default`，`ActiveBeatPulseCount=1`。
+  - B：`Chant 0` 序列 `1.5,2,1.3,1`，第 4 帧回到 `1.0`，无 `ChantBroken`。
+  - C：空施法 Cast 变体 A，`EmptyCastPenalty`，`BufferCount=0`，`Transient=1`，播完回到 `1.0`。
+  - D：空施法 Cast 变体 B，序列 `1.5,1.3,1`，缓冲仍为 0。
+  - E：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，血量 20→10，Cast 动画变体为 A 或 B。
+  - F：队首生命周期回归，`0.25` 起 `4.24` 不清，`4.25` 清空缓冲与 Marker。
+- **状态**：completed。
+- **目视**：Game 视图确认当前拍切顶点会弹一下再收回默认灰底；咏唱黄点先放大再回原尺寸；施法黑点随机两套缩放。手感只调两个 `animationFrameRate`，不要改判定窗口。

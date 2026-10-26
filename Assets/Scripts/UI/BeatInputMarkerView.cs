@@ -38,9 +38,14 @@ namespace BeatSpell.UI
         [SerializeField] private float rotationDegreesPerBeat = 360f;
         [Tooltip("每拍颜色循环次数；2 表示半拍切一段色。")]
         [SerializeField] private float colorCyclesPerBeat = 2f;
+        [Tooltip("咏唱/施法帧动画参考帧率；1f = 1 / animationFrameRate 秒。")]
+        [SerializeField] private float animationFrameRate = 30f;
 
         private const float QueueLifecycleBeats = 4f;
         private const float PerfectRingAlpha = 0.25f;
+        private static readonly float[] ChantScales = { 1.5f, 2f, 1.3f, 1f };
+        private static readonly float[] CastScalesA = { 1.5f, 2f, 1.3f, 1f };
+        private static readonly float[] CastScalesB = { 1.5f, 1.3f, 1f };
 
         // 浅色闪烁色板：用户给定 + 同调补充，运行时 Alpha 固定 25%。
         private static readonly Color[] PerfectRingPalette =
@@ -54,13 +59,26 @@ namespace BeatSpell.UI
             new Color(0xDF / 255f, 0xC9 / 255f, 0xD2 / 255f, PerfectRingAlpha)
         };
 
+        private struct MarkerFrameAnim
+        {
+            public RectTransform rect;
+            public float[] scales;
+            public int frame;
+            public float elapsed;
+            public string kind;
+            public string variant;
+        }
+
         private SpellInputBuffer buffer;
         private readonly List<Image> spawnedMarkers = new List<Image>(8);
         private readonly List<TransientMarker> transients = new List<TransientMarker>(4);
         private readonly List<PerfectRingVisual> activePerfectRings = new List<PerfectRingVisual>(8);
+        private readonly List<MarkerFrameAnim> markerAnims = new List<MarkerFrameAnim>(8);
         private bool hasVisualLifecycle;
         private float headBeatFloat;
+        private int nextCastVariantOverride = -1;
 
+        public float AnimationFrameRate => Mathf.Max(1f, animationFrameRate);
         public int QueueMarkerCount => spawnedMarkers.Count;
         public int TransientMarkerCount => transients.Count;
         public int MarkerCount => spawnedMarkers.Count + transients.Count;
@@ -74,6 +92,12 @@ namespace BeatSpell.UI
         public float LastPromptAnchorBeatFloat { get; private set; }
         public Vector2 LastPromptAnchorPosition { get; private set; }
         public float HeadMarkerBeatFloat => hasVisualLifecycle ? headBeatFloat : 0f;
+        public string LastMarkerAnimKind { get; private set; } = string.Empty;
+        public string LastCastAnimVariant { get; private set; } = string.Empty;
+        public string LastMarkerAnimScaleSequence { get; private set; } = string.Empty;
+        public int LastMarkerAnimFrame { get; private set; }
+        public float LastMarkerAnimScale { get; private set; } = 1f;
+        public bool IsLastMarkerAnimPlaying { get; private set; }
 
         public void Bind(RhythmPrototypeBootstrap host)
         {
@@ -97,6 +121,7 @@ namespace BeatSpell.UI
         {
             double dspNow = AudioSettings.dspTime;
             ExpireTransientIfNeeded(dspNow);
+            TickMarkerAnimations(Time.deltaTime);
             if (bootstrap == null || bootstrap.Clock == null)
             {
                 return;
@@ -134,6 +159,7 @@ namespace BeatSpell.UI
 
             spawnedMarkers.Clear();
             activePerfectRings.Clear();
+            RemoveOrphanMarkerAnims();
             hasVisualLifecycle = false;
             headBeatFloat = 0f;
             LastQueueMarkerHasPerfectRing = false;
@@ -226,6 +252,7 @@ namespace BeatSpell.UI
             }
 
             transients.Clear();
+            RemoveOrphanMarkerAnims();
             Debug.Log("[Track] TransientCastCleared");
         }
 
@@ -240,6 +267,7 @@ namespace BeatSpell.UI
             LastQueueMarkerPromptGrade = string.Empty;
             LastPromptAnchorBeatFloat = 0f;
             LastPromptAnchorPosition = Vector2.zero;
+            RefreshLastMarkerAnimQuery();
         }
 
         private void Subscribe()
@@ -378,7 +406,204 @@ namespace BeatSpell.UI
             float loggedAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
             Debug.Log(
                 $"[Track] Marker {type} {grade} actualBeatFloat={loggedActualBeatFloat:0.##} displayBeatFloat={beatFloat:0.##} anchorBeatFloat={loggedAnchorBeatFloat:0.##} perfectRing={(hasPerfectRing ? 1 : 0)} pos=({pos.x:0},{pos.y:0})");
+            StartMarkerAnimation(rect, type);
             return image;
+        }
+
+        public void SetNextCastAnimVariant(string variant)
+        {
+            if (string.Equals(variant, "A", System.StringComparison.OrdinalIgnoreCase))
+            {
+                nextCastVariantOverride = 0;
+                return;
+            }
+
+            if (string.Equals(variant, "B", System.StringComparison.OrdinalIgnoreCase))
+            {
+                nextCastVariantOverride = 1;
+                return;
+            }
+
+            nextCastVariantOverride = -1;
+        }
+
+        /// <summary>
+        /// MCP：按秒推进所有 Marker 帧动画。
+        /// </summary>
+        public void TickMarkerAnimations(float seconds)
+        {
+            float dt = Mathf.Max(0f, seconds);
+            float frameDuration = 1f / AnimationFrameRate;
+            for (int i = markerAnims.Count - 1; i >= 0; i--)
+            {
+                MarkerFrameAnim anim = markerAnims[i];
+                if (anim.rect == null || anim.scales == null || anim.scales.Length == 0)
+                {
+                    markerAnims.RemoveAt(i);
+                    continue;
+                }
+
+                if (anim.frame >= anim.scales.Length - 1)
+                {
+                    continue;
+                }
+
+                anim.elapsed += dt;
+                while (anim.frame < anim.scales.Length - 1 && anim.elapsed >= frameDuration)
+                {
+                    anim.elapsed -= frameDuration;
+                    anim.frame++;
+                    ApplyMarkerAnim(anim);
+                    if (anim.frame == anim.scales.Length - 1)
+                    {
+                        Debug.Log($"[Track] MarkerAnim complete {anim.kind} variant={anim.variant} scale=1");
+                    }
+                }
+
+                markerAnims[i] = anim;
+            }
+
+            RefreshLastMarkerAnimQuery();
+        }
+
+        /// <summary>
+        /// MCP：推进最近一次 Marker 动画指定帧数。生成后立刻处于第 1 帧。
+        /// </summary>
+        public void AdvanceLastMarkerAnimFrames(int frames)
+        {
+            if (frames <= 0 || markerAnims.Count == 0)
+            {
+                return;
+            }
+
+            int index = markerAnims.Count - 1;
+            MarkerFrameAnim anim = markerAnims[index];
+            if (anim.rect == null || anim.scales == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < frames; i++)
+            {
+                if (anim.frame >= anim.scales.Length - 1)
+                {
+                    break;
+                }
+
+                anim.frame++;
+                anim.elapsed = 0f;
+                ApplyMarkerAnim(anim);
+                if (anim.frame == anim.scales.Length - 1)
+                {
+                    Debug.Log($"[Track] MarkerAnim complete {anim.kind} variant={anim.variant} scale=1");
+                    break;
+                }
+            }
+
+            markerAnims[index] = anim;
+            RefreshLastMarkerAnimQuery();
+        }
+
+        private void StartMarkerAnimation(RectTransform rect, BeatInputType type)
+        {
+            float[] scales;
+            string variant = string.Empty;
+            if (type == BeatInputType.Cast)
+            {
+                int variantIndex = nextCastVariantOverride >= 0
+                    ? nextCastVariantOverride
+                    : Random.Range(0, 2);
+                nextCastVariantOverride = -1;
+                bool useA = variantIndex == 0;
+                scales = useA ? CastScalesA : CastScalesB;
+                variant = useA ? "A" : "B";
+            }
+            else
+            {
+                scales = ChantScales;
+            }
+
+            var anim = new MarkerFrameAnim
+            {
+                rect = rect,
+                scales = scales,
+                frame = 0,
+                elapsed = 0f,
+                kind = type.ToString(),
+                variant = variant
+            };
+            markerAnims.Add(anim);
+            ApplyMarkerAnim(anim);
+            RefreshLastMarkerAnimQuery();
+            Debug.Log(
+                $"[Track] MarkerAnim start {anim.kind} variant={anim.variant} sequence={LastMarkerAnimScaleSequence} frame=1 scale={LastMarkerAnimScale:0.##}");
+        }
+
+        private void ApplyMarkerAnim(MarkerFrameAnim anim)
+        {
+            if (anim.rect == null || anim.scales == null || anim.frame < 0 || anim.frame >= anim.scales.Length)
+            {
+                return;
+            }
+
+            float scale = anim.scales[anim.frame];
+            anim.rect.localScale = Vector3.one * scale;
+        }
+
+        private void RefreshLastMarkerAnimQuery()
+        {
+            if (markerAnims.Count == 0)
+            {
+                LastMarkerAnimKind = string.Empty;
+                LastCastAnimVariant = string.Empty;
+                LastMarkerAnimScaleSequence = string.Empty;
+                LastMarkerAnimFrame = 0;
+                LastMarkerAnimScale = 1f;
+                IsLastMarkerAnimPlaying = false;
+                return;
+            }
+
+            MarkerFrameAnim anim = markerAnims[markerAnims.Count - 1];
+            LastMarkerAnimKind = anim.kind ?? string.Empty;
+            LastCastAnimVariant = anim.variant ?? string.Empty;
+            LastMarkerAnimScaleSequence = FormatScaleSequence(anim.scales);
+            LastMarkerAnimFrame = anim.frame + 1;
+            LastMarkerAnimScale = anim.scales != null && anim.frame >= 0 && anim.frame < anim.scales.Length
+                ? anim.scales[anim.frame]
+                : 1f;
+            IsLastMarkerAnimPlaying = anim.scales != null && anim.frame < anim.scales.Length - 1;
+        }
+
+        private void RemoveOrphanMarkerAnims()
+        {
+            for (int i = markerAnims.Count - 1; i >= 0; i--)
+            {
+                if (markerAnims[i].rect == null)
+                {
+                    markerAnims.RemoveAt(i);
+                }
+            }
+
+            if (markerAnims.Count == 0)
+            {
+                RefreshLastMarkerAnimQuery();
+            }
+        }
+
+        private static string FormatScaleSequence(float[] scales)
+        {
+            if (scales == null || scales.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var parts = new string[scales.Length];
+            for (int i = 0; i < scales.Length; i++)
+            {
+                parts[i] = scales[i].ToString("0.#");
+            }
+
+            return string.Join(",", parts);
         }
 
         /// <summary>
@@ -493,6 +718,7 @@ namespace BeatSpell.UI
             perfectRingScale = Mathf.Max(1.01f, perfectRingScale);
             rotationDegreesPerBeat = Mathf.Max(0f, rotationDegreesPerBeat);
             colorCyclesPerBeat = Mathf.Max(0.01f, colorCyclesPerBeat);
+            animationFrameRate = Mathf.Max(1f, animationFrameRate);
         }
 #endif
     }

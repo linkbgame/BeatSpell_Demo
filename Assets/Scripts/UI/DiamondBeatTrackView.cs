@@ -27,6 +27,8 @@ namespace BeatSpell.UI
         [SerializeField] private float inputMarkerSizeRatio = 0.85f;
         [Tooltip("当前拍 BeatPulse 相对顶点 Rect 的缩放；1 与 idle 圈同大。")]
         [SerializeField] private float beatPulseSizeRatio = 1f;
+        [Tooltip("当前拍帧动画参考帧率；1f = 1 / animationFrameRate 秒。")]
+        [SerializeField] private float animationFrameRate = 30f;
 
         [SerializeField] private RectTransform glowRect;
         [SerializeField] private RectTransform[] edgeRects = new RectTransform[4];
@@ -38,10 +40,30 @@ namespace BeatSpell.UI
         private Vector2[] cachedVertices = new Vector2[4];
         private float cachedVertexSize;
         private Image[] beatPulseImages;
+        private RectTransform[] beatPulseRects;
+
+        // 当前拍 6 帧：1.6 白、1.2 白、1.0 白、过渡1、过渡2、默认底。
+        private static readonly float[] CurrentBeatScales = { 1.6f, 1.2f, 1f, 1f, 1f, 1f };
+        private static readonly float[] CurrentBeatWhiteAmounts = { 1f, 1f, 1f, 2f / 3f, 1f / 3f, 0f };
+        private static readonly string[] CurrentBeatFillLabels =
+        {
+            "White", "White", "White", "Transition1", "Transition2", "Default"
+        };
+
+        private int currentBeatAnimFrame = -1;
+        private float currentBeatAnimElapsed;
+        private int currentBeatAnimVertex = -1;
 
         public int ActiveBeatVertex { get; private set; }
         public float DiamondRadius => diamondRadius;
         public float MarkerSize => cachedVertexSize * Mathf.Max(0.1f, inputMarkerSizeRatio);
+        public float AnimationFrameRate => Mathf.Max(1f, animationFrameRate);
+        public int CurrentBeatAnimFrame => currentBeatAnimFrame < 0 ? 0 : currentBeatAnimFrame + 1;
+        public float CurrentBeatAnimScale { get; private set; } = 1f;
+        public float CurrentBeatAnimWhiteAmount { get; private set; }
+        public string CurrentBeatAnimFill { get; private set; } = "Idle";
+        public bool IsCurrentBeatAnimPlaying =>
+            currentBeatAnimFrame >= 0 && currentBeatAnimFrame < CurrentBeatScales.Length - 1;
 
         /// <summary>
         /// 当前激活的白点数量，验收用：应始终为 0 或 1。
@@ -98,13 +120,13 @@ namespace BeatSpell.UI
         private void Update()
         {
             CacheBeatClock();
-            if (beatClock == null || !beatClock.IsRunning)
+            if (beatClock != null && beatClock.IsRunning)
             {
-                return;
+                // 白点只跟 VertexIndex，禁止用 TrackPhase 做沿边游标。
+                SetBeatVertex(beatClock.VertexIndex);
             }
 
-            // 白点只跟 VertexIndex，禁止用 TrackPhase 做沿边游标。
-            SetBeatVertex(beatClock.VertexIndex);
+            TickCurrentBeatAnimation(Time.deltaTime);
         }
 
         public void SetBeatVertex(int vertexIndex)
@@ -117,6 +139,7 @@ namespace BeatSpell.UI
 
             lastVertexIndex = next;
             ActiveBeatVertex = next;
+            CacheBeatPulseImages();
             for (int i = 0; i < beatPulses.Length; i++)
             {
                 if (beatPulses[i] == null)
@@ -130,7 +153,14 @@ namespace BeatSpell.UI
                 {
                     beatPulseImages[i].enabled = true;
                 }
+
+                if (!on)
+                {
+                    ResetPulseVisual(i);
+                }
             }
+
+            StartCurrentBeatAnimation(next);
 
             if (logBeatVertexChanges)
             {
@@ -147,6 +177,63 @@ namespace BeatSpell.UI
         {
             int index = BeatTimingInfo.PositiveMod(vertexIndex, 4);
             return beatPulses[index] != null && beatPulses[index].activeSelf;
+        }
+
+        /// <summary>
+        /// MCP：按秒推进当前拍帧动画，不改变 VertexIndex。
+        /// </summary>
+        public void TickCurrentBeatAnimation(float seconds)
+        {
+            if (currentBeatAnimFrame < 0 || currentBeatAnimFrame >= CurrentBeatScales.Length - 1)
+            {
+                return;
+            }
+
+            currentBeatAnimElapsed += Mathf.Max(0f, seconds);
+            float frameDuration = 1f / AnimationFrameRate;
+            while (currentBeatAnimFrame < CurrentBeatScales.Length - 1 && currentBeatAnimElapsed >= frameDuration)
+            {
+                currentBeatAnimElapsed -= frameDuration;
+                currentBeatAnimFrame++;
+                ApplyCurrentBeatFrame();
+            }
+        }
+
+        /// <summary>
+        /// MCP：从当前帧向后跳指定帧数。顶点切换后立刻处于第 1 帧。
+        /// </summary>
+        public void AdvanceCurrentBeatAnimFrames(int frames)
+        {
+            if (frames <= 0 || currentBeatAnimFrame < 0)
+            {
+                return;
+            }
+
+            for (int i = 0; i < frames; i++)
+            {
+                if (currentBeatAnimFrame >= CurrentBeatScales.Length - 1)
+                {
+                    break;
+                }
+
+                currentBeatAnimFrame++;
+                ApplyCurrentBeatFrame();
+            }
+
+            currentBeatAnimElapsed = 0f;
+        }
+
+        /// <summary>
+        /// MCP：在当前顶点重播 6 帧动画，不改 VertexIndex。
+        /// </summary>
+        public void ReplayCurrentBeatAnimation()
+        {
+            if (lastVertexIndex < 0)
+            {
+                return;
+            }
+
+            StartCurrentBeatAnimation(lastVertexIndex);
         }
 
         /// <summary>
@@ -233,17 +320,20 @@ namespace BeatSpell.UI
 
         private void CacheBeatPulseImages()
         {
-            if (beatPulseImages != null && beatPulseImages.Length == beatPulses.Length)
+            if (beatPulseImages != null && beatPulseImages.Length == beatPulses.Length &&
+                beatPulseRects != null && beatPulseRects.Length == beatPulses.Length)
             {
                 return;
             }
 
             beatPulseImages = new Image[beatPulses.Length];
+            beatPulseRects = new RectTransform[beatPulses.Length];
             for (int i = 0; i < beatPulses.Length; i++)
             {
                 if (beatPulses[i] != null)
                 {
                     beatPulseImages[i] = beatPulses[i].GetComponent<Image>();
+                    beatPulseRects[i] = beatPulses[i].GetComponent<RectTransform>();
                 }
             }
         }
@@ -253,13 +343,80 @@ namespace BeatSpell.UI
             CacheBeatPulseImages();
             for (int i = 0; i < beatPulses.Length; i++)
             {
+                ResetPulseVisual(i);
                 if (beatPulses[i] != null)
                 {
                     beatPulses[i].SetActive(false);
                 }
             }
 
+            currentBeatAnimFrame = -1;
+            currentBeatAnimElapsed = 0f;
+            currentBeatAnimVertex = -1;
+            CurrentBeatAnimScale = 1f;
+            CurrentBeatAnimWhiteAmount = 0f;
+            CurrentBeatAnimFill = "Idle";
             lastVertexIndex = -1;
+        }
+
+        private void StartCurrentBeatAnimation(int vertexIndex)
+        {
+            currentBeatAnimVertex = vertexIndex;
+            currentBeatAnimFrame = 0;
+            currentBeatAnimElapsed = 0f;
+            ApplyCurrentBeatFrame();
+            Debug.Log(
+                $"[Track] CurrentBeatAnim start vertex={vertexIndex} frame=1 scale={CurrentBeatAnimScale:0.##} fill={CurrentBeatAnimFill}");
+        }
+
+        private void ApplyCurrentBeatFrame()
+        {
+            if (currentBeatAnimFrame < 0 || currentBeatAnimFrame >= CurrentBeatScales.Length)
+            {
+                return;
+            }
+
+            CacheBeatPulseImages();
+            CurrentBeatAnimScale = CurrentBeatScales[currentBeatAnimFrame];
+            CurrentBeatAnimWhiteAmount = CurrentBeatWhiteAmounts[currentBeatAnimFrame];
+            CurrentBeatAnimFill = CurrentBeatFillLabels[currentBeatAnimFrame];
+
+            int index = currentBeatAnimVertex;
+            if (index < 0 || beatPulseRects == null || index >= beatPulseRects.Length)
+            {
+                return;
+            }
+
+            if (beatPulseRects[index] != null)
+            {
+                beatPulseRects[index].localScale = Vector3.one * CurrentBeatAnimScale;
+            }
+
+            if (beatPulseImages != null && index < beatPulseImages.Length && beatPulseImages[index] != null)
+            {
+                Color color = Color.white;
+                color.a = CurrentBeatAnimWhiteAmount;
+                beatPulseImages[index].color = color;
+            }
+
+            if (currentBeatAnimFrame == CurrentBeatScales.Length - 1)
+            {
+                Debug.Log(
+                    $"[Track] CurrentBeatAnim complete vertex={currentBeatAnimVertex} frame=6 scale=1 fill=Default");
+            }
+        }
+
+        private void ResetPulseVisual(int index)
+        {
+            if (beatPulseRects != null && index >= 0 && index < beatPulseRects.Length && beatPulseRects[index] != null)
+            {
+                beatPulseRects[index].localScale = Vector3.one;
+            }
+
+            if (beatPulseImages != null && index >= 0 && index < beatPulseImages.Length && beatPulseImages[index] != null)
+            {
+                beatPulseImages[index].color = Color.white;
+            }
         }
 
         private void RefreshBeatVertexIfRunning()
@@ -354,6 +511,7 @@ namespace BeatSpell.UI
             edgeStripLength = Mathf.Max(0f, edgeStripLength);
             inputMarkerSizeRatio = Mathf.Max(0.1f, inputMarkerSizeRatio);
             beatPulseSizeRatio = Mathf.Max(0.1f, beatPulseSizeRatio);
+            animationFrameRate = Mathf.Max(1f, animationFrameRate);
             ApplyLayout();
         }
 #endif
