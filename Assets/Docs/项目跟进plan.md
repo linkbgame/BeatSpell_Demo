@@ -532,3 +532,28 @@ flowchart TD
   - D：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，血量 20→10，队列圆环仍在。
 - **状态**：completed。
 - **目视**：空施法踩中顶点/中点时，黑点外包彩虹圆环并随节拍变色；偏拍则只有黑点。若觉得太花，只调 `Perfect Ring Palette` 或 `Color Cycles Per Beat`。
+
+## 音效系统落地（2026-10-26）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改。点位依据 `.cursor/plans/音效接入点位清单_8080c8da.plan.md`；实现依据 `.cursor/plans/音效系统落地_06e1ec28.plan.md`。
+- **本轮目标**：先做独立音效系统本体，能播放当前 6 个 SFX，并为 BGM / UI / 敌人 / 胜负预留接口；**不接入**现有咏唱/施法玩法。
+- **规则澄清**：
+  - 玩法层以后只调 `BeatSpellAudioEventId`，不直接拿 `AudioClip`。
+  - 当前战斗反馈走 `Combat` 总线，实际音量再乘 `Sfx` 与 `Master`。
+  - SFX 用池化 `AudioSource.Play()`，默认可重叠；失败音可连续播完。
+  - 预留事件无 Clip 时只打 `[Audio] MissingClip` 警告，不抛异常。
+  - 未来接入玩法时：`MatchFailed` 只播 `CastFailed`，不播 `CastSuccess` / 魔法结果音。本轮不订阅玩法事件。
+- **改动摘要**：
+  - `Assets/Scripts/Audio/BeatSpellAudioEventId.cs`：当前 6 个 SFX ID + BGM/UI/敌人/胜负预留。
+  - `Assets/Scripts/Audio/BeatSpellAudioBus.cs`：`Master` / `Bgm` / `Sfx` / `Ui` / `Combat` / `Voice`。
+  - `Assets/Scripts/Audio/BeatSpellAudioCue.cs`：clip、bus、volume、pitch、loop、allowOverlap、cooldown。
+  - `Assets/Scripts/Audio/BeatSpellAudioSystem.cs`：`Play` / `PlayBgm` / `StopBgm` / `SetBusVolume` / `SetBusMuted` / `GetCue`；ContextMenu 测试入口。
+  - `Assets/Scenes/DemoScene.unity`：根对象 `AudioSystem`，绑定 6 个 WAV，9 个预留 Cue 空 Clip。未挂到 `RhythmPrototype` / `SpellCaster`。
+- **Inspector**：选中 `AudioSystem` → `BeatSpellAudioSystem`。右键组件可用 `Audio/Play ChantNormal` 等菜单试听。手感只调 Cue Volume 或总线音量，不要改判定窗口。
+- **MCP 验收**：Play 模式自动化 **11/11 PASS**。编译 **0 Error**。预期 Warning 仅为预留事件 `[Audio] MissingClip`。前缀 `[Audio]`。
+  - 6 个 SFX 均可独立 `Play`：`ChantNormal` / `ChantPerfect` / `CastSuccess` / `SpellNormal` / `SpellPerfect` / `CastFailed`。
+  - 连续两次 `CastFailed`：`failPlaying>=2`，旧失败音不被硬切断。
+  - `BgmBattle` / `EnemyAttack` 无 Clip → `MissingClip`，不崩溃。
+  - `Master=0.5` + `Combat=0.5` 后预览音量 `1 → 0.25`；`Sfx` 静音后为 0。
+  - `AudioSystem` 未挂玩法脚本。
+- **状态**：completed。后续接入玩法时再订阅 `OnRhythmInput` / `OnSpellCast` / `OnVirtualCastFailed`。
