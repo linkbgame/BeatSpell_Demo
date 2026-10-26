@@ -40,6 +40,8 @@ namespace BeatSpell.UI
         [SerializeField] private float colorCyclesPerBeat = 2f;
         [Tooltip("咏唱/施法帧动画参考帧率；1f = 1 / animationFrameRate 秒。")]
         [SerializeField] private float animationFrameRate = 30f;
+        [Tooltip("Perfect 圆环彩虹色板；空数组时回退到默认彩虹。运行时 Alpha 固定 25%。")]
+        [SerializeField] private Color[] perfectRingPalette;
 
         private const float QueueLifecycleBeats = 4f;
         private const float PerfectRingAlpha = 0.25f;
@@ -47,16 +49,16 @@ namespace BeatSpell.UI
         private static readonly float[] CastScalesA = { 1.5f, 2f, 1.3f, 1f };
         private static readonly float[] CastScalesB = { 1.5f, 1.3f, 1f };
 
-        // 浅色闪烁色板：用户给定 + 同调补充，运行时 Alpha 固定 25%。
-        private static readonly Color[] PerfectRingPalette =
+        private static readonly Color[] DefaultRainbowPalette =
         {
-            new Color(0xBB / 255f, 0x9C / 255f, 0x99 / 255f, PerfectRingAlpha),
-            new Color(0xEA / 255f, 0xC5 / 255f, 0xEA / 255f, PerfectRingAlpha),
-            new Color(0xD1 / 255f, 0xAF / 255f, 0xA9 / 255f, PerfectRingAlpha),
-            new Color(0xF0 / 255f, 0xD4 / 255f, 0xC8 / 255f, PerfectRingAlpha),
-            new Color(0xC9 / 255f, 0xB8 / 255f, 0xE8 / 255f, PerfectRingAlpha),
-            new Color(0xE8 / 255f, 0xD5 / 255f, 0xE0 / 255f, PerfectRingAlpha),
-            new Color(0xDF / 255f, 0xC9 / 255f, 0xD2 / 255f, PerfectRingAlpha)
+            new Color(0xFF / 255f, 0x4D / 255f, 0x6D / 255f, PerfectRingAlpha),
+            new Color(0xFF / 255f, 0x8C / 255f, 0x42 / 255f, PerfectRingAlpha),
+            new Color(0xFF / 255f, 0xD9 / 255f, 0x3D / 255f, PerfectRingAlpha),
+            new Color(0x6B / 255f, 0xCB / 255f, 0x77 / 255f, PerfectRingAlpha),
+            new Color(0x4D / 255f, 0x96 / 255f, 0xFF / 255f, PerfectRingAlpha),
+            new Color(0x84 / 255f, 0x5E / 255f, 0xC2 / 255f, PerfectRingAlpha),
+            new Color(0xFF / 255f, 0x6A / 255f, 0xC1 / 255f, PerfectRingAlpha),
+            new Color(0x7F / 255f, 0xDB / 255f, 0xFF / 255f, PerfectRingAlpha)
         };
 
         private struct MarkerFrameAnim
@@ -83,9 +85,11 @@ namespace BeatSpell.UI
         public int TransientMarkerCount => transients.Count;
         public int MarkerCount => spawnedMarkers.Count + transients.Count;
         public int ActivePerfectRingCount => activePerfectRings.Count;
+        public int PerfectRingPaletteCount => ResolvePerfectRingPalette().Length;
         public Vector2 LastMarkerPosition { get; private set; }
         public string LastMarkerKind { get; private set; } = string.Empty;
         public bool LastQueueMarkerHasPerfectRing { get; private set; }
+        public bool LastTransientMarkerHasPerfectRing { get; private set; }
         public bool LastQueueMarkerHasRays => LastQueueMarkerHasPerfectRing;
         public string LastQueueMarkerGrade { get; private set; } = string.Empty;
         public string LastQueueMarkerPromptGrade { get; private set; } = string.Empty;
@@ -158,11 +162,15 @@ namespace BeatSpell.UI
             }
 
             spawnedMarkers.Clear();
-            activePerfectRings.Clear();
+            PrunePerfectRings();
             RemoveOrphanMarkerAnims();
             hasVisualLifecycle = false;
             headBeatFloat = 0f;
             LastQueueMarkerHasPerfectRing = false;
+            if (transients.Count == 0)
+            {
+                LastTransientMarkerHasPerfectRing = false;
+            }
             LastQueueMarkerGrade = string.Empty;
             LastQueueMarkerPromptGrade = string.Empty;
             LastPromptAnchorBeatFloat = 0f;
@@ -201,10 +209,24 @@ namespace BeatSpell.UI
 
         /// <summary>
         /// 空施法短效黑色 Cast 痕：不入队列、不走一圈生命周期，到期按 dsp 自销毁。
+        /// Perfect 提示时吸附 8 点并复用队列同一套 Perfect Ring。
         /// </summary>
-        public void ShowTransientCastMarker(BeatTimingInfo timing, float lifeSeconds)
+        public void ShowTransientCastMarker(
+            BeatTimingInfo timing,
+            float lifeSeconds,
+            BeatTimingGrade promptGrade,
+            float promptAnchorBeatFloat)
         {
-            Image image = CreateMarkerImage(timing.BeatFloat, BeatInputType.Cast, BeatTimingGrade.Perfect, isQueue: false);
+            bool promptPerfect = promptGrade == BeatTimingGrade.Perfect;
+            float displayBeatFloat = promptPerfect ? promptAnchorBeatFloat : timing.BeatFloat;
+            Image image = CreateMarkerImage(
+                displayBeatFloat,
+                BeatInputType.Cast,
+                promptGrade,
+                isQueue: false,
+                actualBeatFloat: timing.BeatFloat,
+                promptAnchorBeatFloat: promptAnchorBeatFloat,
+                allowPerfectRing: promptPerfect);
             if (image == null)
             {
                 return;
@@ -215,7 +237,8 @@ namespace BeatSpell.UI
                 image = image,
                 expireDspTime = timing.DspTime + Mathf.Max(0f, lifeSeconds)
             });
-            Debug.Log($"[Track] TransientCast beatFloat={timing.BeatFloat:0.##} life={lifeSeconds:0.###}s");
+            Debug.Log(
+                $"[Track] TransientCast beatFloat={timing.BeatFloat:0.##} prompt={promptGrade} anchor={promptAnchorBeatFloat:0.##} ring={(LastTransientMarkerHasPerfectRing ? 1 : 0)} life={lifeSeconds:0.###}s");
         }
 
         public void ExpireTransientIfNeeded(double dspNow)
@@ -235,6 +258,12 @@ namespace BeatSpell.UI
 
             if (anyExpired)
             {
+                PrunePerfectRings();
+                if (transients.Count == 0)
+                {
+                    LastTransientMarkerHasPerfectRing = false;
+                }
+
                 Debug.Log("[Track] TransientCastCleared");
             }
         }
@@ -252,6 +281,8 @@ namespace BeatSpell.UI
             }
 
             transients.Clear();
+            LastTransientMarkerHasPerfectRing = false;
+            PrunePerfectRings();
             RemoveOrphanMarkerAnims();
             Debug.Log("[Track] TransientCastCleared");
         }
@@ -263,6 +294,7 @@ namespace BeatSpell.UI
             LastMarkerKind = string.Empty;
             LastMarkerPosition = Vector2.zero;
             LastQueueMarkerHasPerfectRing = false;
+            LastTransientMarkerHasPerfectRing = false;
             LastQueueMarkerGrade = string.Empty;
             LastQueueMarkerPromptGrade = string.Empty;
             LastPromptAnchorBeatFloat = 0f;
@@ -325,7 +357,12 @@ namespace BeatSpell.UI
 
         private Vector2 SpawnMarker(float beatFloat, BeatInputType type, BeatTimingGrade grade = BeatTimingGrade.Weak)
         {
-            Image image = CreateMarkerImage(beatFloat, type, grade, isQueue: true);
+            Image image = CreateMarkerImage(
+                beatFloat,
+                type,
+                grade,
+                isQueue: true,
+                allowPerfectRing: grade == BeatTimingGrade.Perfect);
             if (image == null)
             {
                 return Vector2.zero;
@@ -345,7 +382,8 @@ namespace BeatSpell.UI
                 entry.PromptGrade,
                 isQueue: true,
                 actualBeatFloat: entry.BeatFloat,
-                promptAnchorBeatFloat: entry.PromptAnchorBeatFloat);
+                promptAnchorBeatFloat: entry.PromptAnchorBeatFloat,
+                allowPerfectRing: promptPerfect);
             if (image == null)
             {
                 return Vector2.zero;
@@ -361,7 +399,8 @@ namespace BeatSpell.UI
             BeatTimingGrade grade,
             bool isQueue,
             float actualBeatFloat = float.NaN,
-            float promptAnchorBeatFloat = float.NaN)
+            float promptAnchorBeatFloat = float.NaN,
+            bool allowPerfectRing = false)
         {
             CacheRefs();
             if (markerRoot == null || trackView == null)
@@ -388,18 +427,22 @@ namespace BeatSpell.UI
             image.raycastTarget = false;
             image.preserveAspect = true;
 
-            bool hasPerfectRing = isQueue && grade == BeatTimingGrade.Perfect
+            bool hasPerfectRing = allowPerfectRing && grade == BeatTimingGrade.Perfect
                 && AttachPerfectRing(rect, size, beatFloat);
 
             LastMarkerPosition = pos;
             LastMarkerKind = type.ToString();
+            LastPromptAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
+            LastPromptAnchorPosition = trackView.GetPositionOnTrack(LastPromptAnchorBeatFloat);
             if (isQueue)
             {
                 LastQueueMarkerHasPerfectRing = hasPerfectRing;
                 LastQueueMarkerGrade = grade.ToString();
                 LastQueueMarkerPromptGrade = grade.ToString();
-                LastPromptAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
-                LastPromptAnchorPosition = trackView.GetPositionOnTrack(LastPromptAnchorBeatFloat);
+            }
+            else
+            {
+                LastTransientMarkerHasPerfectRing = hasPerfectRing;
             }
 
             float loggedActualBeatFloat = float.IsNaN(actualBeatFloat) ? beatFloat : actualBeatFloat;
@@ -663,29 +706,72 @@ namespace BeatSpell.UI
 
         private Color EvaluatePerfectRingColor(float elapsedBeats)
         {
-            int count = PerfectRingPalette.Length;
+            Color[] palette = ResolvePerfectRingPalette();
+            int count = palette.Length;
             float cycles = Mathf.Max(0.01f, colorCyclesPerBeat);
             float phase = Mathf.Repeat(elapsedBeats * cycles, count);
             int index = Mathf.FloorToInt(phase);
             float t = phase - index;
-            Color a = PerfectRingPalette[index % count];
-            Color b = PerfectRingPalette[(index + 1) % count];
+            Color a = palette[index % count];
+            Color b = palette[(index + 1) % count];
             Color mixed = Color.Lerp(a, b, t);
             mixed.a = PerfectRingAlpha;
             return mixed;
         }
 
-        private static void DestroyMarkerImage(Image image)
+        private Color[] ResolvePerfectRingPalette()
         {
-            if (image != null)
+            if (perfectRingPalette != null && perfectRingPalette.Length > 0)
             {
-                if (Application.isPlaying)
+                return perfectRingPalette;
+            }
+
+            return DefaultRainbowPalette;
+        }
+
+        private void PrunePerfectRings()
+        {
+            for (int i = activePerfectRings.Count - 1; i >= 0; i--)
+            {
+                PerfectRingVisual visual = activePerfectRings[i];
+                if (visual.rect == null || visual.image == null)
                 {
-                    Destroy(image.gameObject);
+                    activePerfectRings.RemoveAt(i);
                 }
-                else
+            }
+        }
+
+        private void DestroyMarkerImage(Image image)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            UnregisterPerfectRingsUnder(image.transform);
+            if (Application.isPlaying)
+            {
+                Destroy(image.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(image.gameObject);
+            }
+        }
+
+        private void UnregisterPerfectRingsUnder(Transform parent)
+        {
+            if (parent == null)
+            {
+                return;
+            }
+
+            for (int i = activePerfectRings.Count - 1; i >= 0; i--)
+            {
+                PerfectRingVisual visual = activePerfectRings[i];
+                if (visual.rect == null || visual.rect.parent == parent)
                 {
-                    DestroyImmediate(image.gameObject);
+                    activePerfectRings.RemoveAt(i);
                 }
             }
         }
@@ -719,6 +805,17 @@ namespace BeatSpell.UI
             rotationDegreesPerBeat = Mathf.Max(0f, rotationDegreesPerBeat);
             colorCyclesPerBeat = Mathf.Max(0.01f, colorCyclesPerBeat);
             animationFrameRate = Mathf.Max(1f, animationFrameRate);
+            if (perfectRingPalette == null || perfectRingPalette.Length == 0)
+            {
+                perfectRingPalette = (Color[])DefaultRainbowPalette.Clone();
+            }
+
+            for (int i = 0; i < perfectRingPalette.Length; i++)
+            {
+                Color color = perfectRingPalette[i];
+                color.a = PerfectRingAlpha;
+                perfectRingPalette[i] = color;
+            }
         }
 #endif
     }

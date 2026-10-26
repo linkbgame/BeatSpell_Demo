@@ -59,7 +59,10 @@ namespace BeatSpell.Prototype
         public string LastMarkerKind => markerView != null ? markerView.LastMarkerKind : string.Empty;
         public bool LastQueueMarkerHasPerfectRing =>
             markerView != null && markerView.LastQueueMarkerHasPerfectRing;
+        public bool LastTransientMarkerHasPerfectRing =>
+            markerView != null && markerView.LastTransientMarkerHasPerfectRing;
         public int ActivePerfectRingCount => markerView != null ? markerView.ActivePerfectRingCount : 0;
+        public int PerfectRingPaletteCount => markerView != null ? markerView.PerfectRingPaletteCount : 0;
         public bool LastQueueMarkerHasRays => LastQueueMarkerHasPerfectRing;
         public string LastQueueMarkerGrade => markerView != null ? markerView.LastQueueMarkerGrade : string.Empty;
         public string LastQueueMarkerPromptGrade => markerView != null ? markerView.LastQueueMarkerPromptGrade : string.Empty;
@@ -342,13 +345,18 @@ namespace BeatSpell.Prototype
             if (type == BeatInputType.Cast && (spellInputBuffer == null || !spellInputBuffer.HasActiveChantLifecycle))
             {
                 BeatTimingGrade emptyCastGrade = rhythmJudge.Evaluate(timing.DeltaMs);
+                BeatTimingGrade emptyCastPromptGrade = EvaluatePromptGrade(timing, out float emptyCastPromptAnchor);
                 LogBeatInput(type, emptyCastGrade, timing);
                 if (inputController != null)
                 {
                     inputController.RaiseRhythmInput(type, emptyCastGrade, timing.DeltaMs, timing.BeatIndex);
                 }
 
-                markerView?.ShowTransientCastMarker(timing, FailedInputMarkerClearDelaySeconds);
+                markerView?.ShowTransientCastMarker(
+                    timing,
+                    FailedInputMarkerClearDelaySeconds,
+                    emptyCastPromptGrade,
+                    emptyCastPromptAnchor);
                 StartFailureCooldownAndMarkerClear(timing.DspTime);
                 queryDspTime = timing.DspTime;
                 spellCaster?.LogEmptyCastPenalty();

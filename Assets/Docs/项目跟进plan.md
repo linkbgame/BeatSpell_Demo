@@ -508,3 +508,27 @@ flowchart TD
   - F：队首生命周期回归，`0.25` 起 `4.24` 不清，`4.25` 清空缓冲与 Marker。
 - **状态**：completed。
 - **目视**：Game 视图确认当前拍切顶点会弹一下再收回默认灰底；咏唱黄点先放大再回原尺寸；施法黑点随机两套缩放。手感只调两个 `animationFrameRate`，不要改判定窗口。
+
+## 空施法 Perfect Ring 与彩虹色板（2026-10-26）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改；本补丁记录在跟进文档中。
+- **本轮目标**：空施法短效 Cast 命中 8 点 Perfect 提示时复用现有 Perfect Ring；圆环色板改为更丰富的彩虹色。规则层不变：不入缓冲、仍 `EmptyCastPenalty`。
+- **规则澄清**：
+  - 空施法也走 `EvaluatePromptGrade`，只把 `promptGrade` / `promptAnchorBeatFloat` 传给 UI。
+  - Perfect：短效 Cast 吸附到 8 锚点并挂圆环；非 Perfect：按实际 `BeatFloat` 落点，无圆环。
+  - 圆环仍由 `AttachPerfectRing` / `TickPerfectRings` / `BeatFloat` 驱动，Alpha 固定 25%。
+  - 默认彩虹：`#FF4D6D` `#FF8C42` `#FFD93D` `#6BCB77` `#4D96FF` `#845EC2` `#FF6AC1` `#7FDBFF`。Inspector 色板为空时回退该默认。
+- **改动摘要**：
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：空施法分支复用 `EvaluatePromptGrade`；暴露 `LastTransientMarkerHasPerfectRing` / `PerfectRingPaletteCount`。
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：`ShowTransientCastMarker` 接收提示等级；`CreateMarkerImage` 用 `allowPerfectRing` 参数复用圆环；销毁 Marker 时注销其子圆环。
+- **Inspector**：`BeatInputMarkerView.perfectRingPalette` 可改彩虹色；空数组回退默认 8 色。无需新 Sprite。
+- **MCP 验收**：Play 模式自动化 **8/8 PASS**。Console 最终 **0 Error / 0 Warning**。前缀 `[Track]` / `[Beat]` / `[Spell]`。
+  - Palette：色板数量 8。
+  - A：无咏唱 `Cast 0` → `EmptyCastPenalty`，`BufferCount=0`，`Transient=1`，`LastPromptGrade=Perfect`，短效圆环=1。
+  - 封锁内 `Chant 0.1` → `InputRejected`，不新增 Marker。
+  - 到期：推进到 `0.5` 拍后短效 Marker 与圆环一并清空。
+  - B：`Cast 0.5` → 锚点 `0.5`，短效圆环=1。
+  - C：`Cast 0.25` → 非 Perfect，无圆环，短效 Cast 仍为 1。
+  - D：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，血量 20→10，队列圆环仍在。
+- **状态**：completed。
+- **目视**：空施法踩中顶点/中点时，黑点外包彩虹圆环并随节拍变色；偏拍则只有黑点。若觉得太花，只调 `Perfect Ring Palette` 或 `Color Cycles Per Beat`。
