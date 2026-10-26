@@ -444,3 +444,28 @@ flowchart TD
   - R5 火焰回归：`Chant 0 -> Cast 1` 仍 `Matched Fireball`，`damageFactor=1`，PASS。
 - **状态**：completed。动画取消和失败音效播放已暴露事件入口，后续接角色动画 / AudioSource 时订阅 `OnVirtualCastFailed`，音效使用 `PlayOneShot` 或等价一次性播放方式。
 - **MCP Edit Mode 留痕清理（2026-10-25）**：`RunCommand` 在非 Play 下会在 `DiamondBeatTrack/MarkerRoot` 持久化 `ChantMarker`/`CastMarker`；验收或调试后应 `ClearAllInputMarkers()` 并 `DestroyImmediate` 清空 `MarkerRoot` 子物体。本次清理：`childCount 10→0`，已保存 `Assets/Scenes/DemoScene.unity`。
+
+## Perfect Ring 完美节拍圆环（2026-10-26）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改；本补丁记录在跟进文档中。
+- **本轮目标**：用 `perfect_ring.png` 替换程序化放射线。Perfect 咏唱/施法 Marker 外包旋转 + 浅色闪烁圆环（Alpha 固定 25%），生命周期与队列 Marker 的队首一圈规则同步。
+- **规则澄清**：
+  - Perfect 圆环仍由 `EvaluateHalfBeatPrompt` 的 `PromptGrade` 驱动，仅 8 锚点 Perfect 显示；非 Perfect 与短效空施法 Cast **不**挂圆环。
+  - 旋转与色板插值用 `BeatClock.BeatFloat`，不用 `Time.deltaTime`。
+  - 默认每拍转 360°，每拍 2 段浅色切换；色板 `#BB9C99` `#EAC5EA` `#D1AFA9` `#F0D4C8` `#C9B8E8` `#E8D5E0` `#DFC9D2`。
+- **改动摘要**：
+  - `Assets/Scripts/UI/BeatInputMarkerView.cs`：`AttachPerfectRing` 替换 `AttachPerfectRays`；`TickPerfectRings`；查询 `LastQueueMarkerHasPerfectRing` / `ActivePerfectRingCount`；`LastQueueMarkerHasRays` 兼容别名。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：暴露上述查询字段。
+  - `Assets/Art/UI/BeatTrack/Prefabs/DiamondBeatTrack.prefab`：绑定 `perfectRingSprite`，`perfectRingScale=1.22`。
+  - `Assets/Docs/BeatTrack_ArtSpec.md`：补充 `perfect_ring.png` 清单。
+- **Inspector**：`DiamondBeatTrack` → `BeatInputMarkerView` 确认 **Perfect Ring Sprite**；可调 Scale / 每拍旋转 / 色循环。
+- **MCP 验收**：Play 模式自动化 **19/19 PASS**。Console 最终 **0 Error / 0 Warning**。前缀 `[Track]` / `[Beat]` / `[Spell]`。
+  - A 顶点 Perfect：`Chant 0.0` → `LastPromptGrade=Perfect`，`LastQueueMarkerHasPerfectRing=true`，`ActivePerfectRingCount=1`，无 `Ray_*` 子物体，`LastQueueMarkerHasRays` 别名为 true。
+  - B 中点 Perfect：`Chant 0.5` → 锚点 `0.5`，圆环存在。
+  - C 非 Perfect：`Chant 0.25` → 队列 Marker=1，无圆环。
+  - D 施法 Perfect：`Chant 0 + Cast 1` → `Matched Fireball`，`damageFactor=1`，Cast 圆环存在。
+  - H 生命周期：`beatFloat=0.25` 起，`4.24` 不清，`4.25` Marker 与圆环一并清空。
+  - H2 圆环同步：`Chant 0` 后 `3.99` 圆环仍在，`4.0` 清空。
+- **资源**：Prefab 已绑 `perfect_ring`（GUID `f5c26720adced5b4887e10a0b1c02786`），`perfectRingScale=1.22`。
+- **状态**：completed。
+- **目视**：Game 视图确认圆环包在 Marker 外缘、随节拍旋转、浅色闪烁且约 25% 透明。若偏大/偏小只调 `perfectRingScale`。

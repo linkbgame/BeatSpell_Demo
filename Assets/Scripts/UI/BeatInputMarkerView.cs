@@ -19,27 +19,56 @@ namespace BeatSpell.UI
             public double expireDspTime;
         }
 
+        private struct PerfectRingVisual
+        {
+            public RectTransform rect;
+            public Image image;
+            public float spawnBeatFloat;
+        }
+
         [SerializeField] private RhythmPrototypeBootstrap bootstrap;
         [SerializeField] private DiamondBeatTrackView trackView;
         [SerializeField] private RectTransform markerRoot;
         [SerializeField] private Sprite chantSprite;
         [SerializeField] private Sprite castSprite;
+        [SerializeField] private Sprite perfectRingSprite;
+        [Tooltip("圆环直径相对 Marker 的倍数，需略大于咏唱/施法点以包在外圈。")]
+        [SerializeField] private float perfectRingScale = 1.22f;
+        [Tooltip("每拍旋转角度；360 表示与节拍同相转一圈。")]
+        [SerializeField] private float rotationDegreesPerBeat = 360f;
+        [Tooltip("每拍颜色循环次数；2 表示半拍切一段色。")]
+        [SerializeField] private float colorCyclesPerBeat = 2f;
 
-        private const int PerfectRayCount = 8;
         private const float QueueLifecycleBeats = 4f;
+        private const float PerfectRingAlpha = 0.25f;
+
+        // 浅色闪烁色板：用户给定 + 同调补充，运行时 Alpha 固定 25%。
+        private static readonly Color[] PerfectRingPalette =
+        {
+            new Color(0xBB / 255f, 0x9C / 255f, 0x99 / 255f, PerfectRingAlpha),
+            new Color(0xEA / 255f, 0xC5 / 255f, 0xEA / 255f, PerfectRingAlpha),
+            new Color(0xD1 / 255f, 0xAF / 255f, 0xA9 / 255f, PerfectRingAlpha),
+            new Color(0xF0 / 255f, 0xD4 / 255f, 0xC8 / 255f, PerfectRingAlpha),
+            new Color(0xC9 / 255f, 0xB8 / 255f, 0xE8 / 255f, PerfectRingAlpha),
+            new Color(0xE8 / 255f, 0xD5 / 255f, 0xE0 / 255f, PerfectRingAlpha),
+            new Color(0xDF / 255f, 0xC9 / 255f, 0xD2 / 255f, PerfectRingAlpha)
+        };
 
         private SpellInputBuffer buffer;
         private readonly List<Image> spawnedMarkers = new List<Image>(8);
         private readonly List<TransientMarker> transients = new List<TransientMarker>(4);
+        private readonly List<PerfectRingVisual> activePerfectRings = new List<PerfectRingVisual>(8);
         private bool hasVisualLifecycle;
         private float headBeatFloat;
 
         public int QueueMarkerCount => spawnedMarkers.Count;
         public int TransientMarkerCount => transients.Count;
         public int MarkerCount => spawnedMarkers.Count + transients.Count;
+        public int ActivePerfectRingCount => activePerfectRings.Count;
         public Vector2 LastMarkerPosition { get; private set; }
         public string LastMarkerKind { get; private set; } = string.Empty;
-        public bool LastQueueMarkerHasRays { get; private set; }
+        public bool LastQueueMarkerHasPerfectRing { get; private set; }
+        public bool LastQueueMarkerHasRays => LastQueueMarkerHasPerfectRing;
         public string LastQueueMarkerGrade { get; private set; } = string.Empty;
         public string LastQueueMarkerPromptGrade { get; private set; } = string.Empty;
         public float LastPromptAnchorBeatFloat { get; private set; }
@@ -68,7 +97,17 @@ namespace BeatSpell.UI
         {
             double dspNow = AudioSettings.dspTime;
             ExpireTransientIfNeeded(dspNow);
-            if (!hasVisualLifecycle || bootstrap == null || bootstrap.Clock == null)
+            if (bootstrap == null || bootstrap.Clock == null)
+            {
+                return;
+            }
+
+            if (bootstrap.Clock.IsRunning)
+            {
+                TickPerfectRings(bootstrap.Clock.BeatFloat);
+            }
+
+            if (!hasVisualLifecycle)
             {
                 return;
             }
@@ -94,9 +133,10 @@ namespace BeatSpell.UI
             }
 
             spawnedMarkers.Clear();
+            activePerfectRings.Clear();
             hasVisualLifecycle = false;
             headBeatFloat = 0f;
-            LastQueueMarkerHasRays = false;
+            LastQueueMarkerHasPerfectRing = false;
             LastQueueMarkerGrade = string.Empty;
             LastQueueMarkerPromptGrade = string.Empty;
             LastPromptAnchorBeatFloat = 0f;
@@ -195,7 +235,7 @@ namespace BeatSpell.UI
             ClearTransientMarkers();
             LastMarkerKind = string.Empty;
             LastMarkerPosition = Vector2.zero;
-            LastQueueMarkerHasRays = false;
+            LastQueueMarkerHasPerfectRing = false;
             LastQueueMarkerGrade = string.Empty;
             LastQueueMarkerPromptGrade = string.Empty;
             LastPromptAnchorBeatFloat = 0f;
@@ -320,17 +360,14 @@ namespace BeatSpell.UI
             image.raycastTarget = false;
             image.preserveAspect = true;
 
-            bool hasRays = isQueue && grade == BeatTimingGrade.Perfect;
-            if (hasRays)
-            {
-                AttachPerfectRays(rect, size);
-            }
+            bool hasPerfectRing = isQueue && grade == BeatTimingGrade.Perfect
+                && AttachPerfectRing(rect, size, beatFloat);
 
             LastMarkerPosition = pos;
             LastMarkerKind = type.ToString();
             if (isQueue)
             {
-                LastQueueMarkerHasRays = hasRays;
+                LastQueueMarkerHasPerfectRing = hasPerfectRing;
                 LastQueueMarkerGrade = grade.ToString();
                 LastQueueMarkerPromptGrade = grade.ToString();
                 LastPromptAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
@@ -340,41 +377,77 @@ namespace BeatSpell.UI
             float loggedActualBeatFloat = float.IsNaN(actualBeatFloat) ? beatFloat : actualBeatFloat;
             float loggedAnchorBeatFloat = float.IsNaN(promptAnchorBeatFloat) ? beatFloat : promptAnchorBeatFloat;
             Debug.Log(
-                $"[Track] Marker {type} {grade} actualBeatFloat={loggedActualBeatFloat:0.##} displayBeatFloat={beatFloat:0.##} anchorBeatFloat={loggedAnchorBeatFloat:0.##} rays={(hasRays ? PerfectRayCount : 0)} pos=({pos.x:0},{pos.y:0})");
+                $"[Track] Marker {type} {grade} actualBeatFloat={loggedActualBeatFloat:0.##} displayBeatFloat={beatFloat:0.##} anchorBeatFloat={loggedAnchorBeatFloat:0.##} perfectRing={(hasPerfectRing ? 1 : 0)} pos=({pos.x:0},{pos.y:0})");
             return image;
         }
 
         /// <summary>
-        /// Perfect 放射短线：从圆心向外，不依赖额外 Sprite。
+        /// Perfect 圆环：包在咏唱/施法 Marker 外圈，旋转与浅色闪烁由 BeatFloat 驱动。
         /// </summary>
-        private static void AttachPerfectRays(RectTransform parent, float markerSize)
+        private bool AttachPerfectRing(RectTransform parent, float markerSize, float spawnBeatFloat)
         {
-            float rayLength = markerSize * 0.55f;
-            float rayThickness = Mathf.Max(2f, markerSize * 0.08f);
-            Color rayColor = new Color(0.965f, 0.957f, 0.114f, 0.95f);
-            float startRadius = markerSize * 0.42f;
-
-            for (int i = 0; i < PerfectRayCount; i++)
+            if (perfectRingSprite == null)
             {
-                var go = new GameObject($"Ray_{i}", typeof(RectTransform), typeof(Image));
-                go.transform.SetParent(parent, false);
-                go.transform.SetAsFirstSibling();
-
-                RectTransform rect = go.GetComponent<RectTransform>();
-                rect.anchorMin = new Vector2(0.5f, 0.5f);
-                rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0.5f, 0f);
-                rect.sizeDelta = new Vector2(rayThickness, rayLength);
-
-                float angle = i * (360f / PerfectRayCount);
-                rect.localEulerAngles = new Vector3(0f, 0f, angle);
-                float rad = angle * Mathf.Deg2Rad;
-                rect.anchoredPosition = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad)) * startRadius;
-
-                Image image = go.GetComponent<Image>();
-                image.color = rayColor;
-                image.raycastTarget = false;
+                Debug.LogWarning("[Track] PerfectRing Sprite 未绑定，无法显示完美节拍圆环。");
+                return false;
             }
+
+            var go = new GameObject("PerfectRing", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(parent, false);
+            go.transform.SetAsFirstSibling();
+
+            float ringSize = markerSize * Mathf.Max(1.01f, perfectRingScale);
+            RectTransform rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(ringSize, ringSize);
+
+            Image image = go.GetComponent<Image>();
+            image.sprite = perfectRingSprite;
+            image.raycastTarget = false;
+            image.preserveAspect = true;
+            image.color = EvaluatePerfectRingColor(0f);
+
+            activePerfectRings.Add(new PerfectRingVisual
+            {
+                rect = rect,
+                image = image,
+                spawnBeatFloat = spawnBeatFloat
+            });
+            return true;
+        }
+
+        private void TickPerfectRings(float currentBeatFloat)
+        {
+            for (int i = activePerfectRings.Count - 1; i >= 0; i--)
+            {
+                PerfectRingVisual visual = activePerfectRings[i];
+                if (visual.rect == null || visual.image == null)
+                {
+                    activePerfectRings.RemoveAt(i);
+                    continue;
+                }
+
+                float elapsedBeats = currentBeatFloat - visual.spawnBeatFloat;
+                visual.rect.localEulerAngles = new Vector3(0f, 0f, elapsedBeats * rotationDegreesPerBeat);
+                visual.image.color = EvaluatePerfectRingColor(elapsedBeats);
+            }
+        }
+
+        private Color EvaluatePerfectRingColor(float elapsedBeats)
+        {
+            int count = PerfectRingPalette.Length;
+            float cycles = Mathf.Max(0.01f, colorCyclesPerBeat);
+            float phase = Mathf.Repeat(elapsedBeats * cycles, count);
+            int index = Mathf.FloorToInt(phase);
+            float t = phase - index;
+            Color a = PerfectRingPalette[index % count];
+            Color b = PerfectRingPalette[(index + 1) % count];
+            Color mixed = Color.Lerp(a, b, t);
+            mixed.a = PerfectRingAlpha;
+            return mixed;
         }
 
         private static void DestroyMarkerImage(Image image)
@@ -413,5 +486,14 @@ namespace BeatSpell.UI
                 }
             }
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            perfectRingScale = Mathf.Max(1.01f, perfectRingScale);
+            rotationDegreesPerBeat = Mathf.Max(0f, rotationDegreesPerBeat);
+            colorCyclesPerBeat = Mathf.Max(0.01f, colorCyclesPerBeat);
+        }
+#endif
     }
 }

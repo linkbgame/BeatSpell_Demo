@@ -695,6 +695,14 @@ PrefabInstance:
       propertyPath: bootstrap
       value: 
       objectReference: {fileID: 404296583}
+    - target: {fileID: 1604720265831699583, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: perfectRingScale
+      value: 1.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 1604720265831699583, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: rotationDegreesPerBeat
+      value: 120
+      objectReference: {fileID: 0}
     - target: {fileID: 2328613619387796857, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_Enabled
       value: 0

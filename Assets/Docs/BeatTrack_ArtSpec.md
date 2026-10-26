@@ -52,6 +52,7 @@
 | `track_marker_chant.png` | 256×256 | 黄实心 + 青蓝包边 |
 | `track_marker_cast.png` | 256×256 | 黑实心 + 青蓝包边 |
 | `track_glow_ring.png` | 512×512 | 背后同心光晕（可选） |
+| `perfect_ring.png` | 整图圆环 | Perfect 输入外圈；旋转与浅色闪烁由 `BeatInputMarkerView` 按 `BeatFloat` 驱动 |
 
 ### 正式绑定（`*_new`，2026-03）
 
@@ -65,6 +66,7 @@
 | `track_vertex_beat_new.png` | 741×741 | 当前拍 BeatPulse；**PMA 贴图** + `BeatPulsePremultiplied` 材质 |
 | `track_marker_chant_new.png` | 741×741 | 咏唱留痕 |
 | `track_marker_cast_new.png` | 741×742 | 施法留痕 |
+| `perfect_ring.png` | 整图圆环 | Perfect 外圈提示；Prefab 绑到 `BeatInputMarkerView.perfectRingSprite`；脚本驱动旋转 + 浅色闪烁（Alpha 25%） |
 
 布局：`DiamondBeatTrackView.spriteContentScale` 默认 **0.832**（新图满画布，对齐旧版约 83% 画内占比）。可调至 1 若美术加透明边。
 

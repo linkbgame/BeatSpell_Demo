@@ -1193,6 +1193,10 @@ MonoBehaviour:
   markerRoot: {fileID: 4931966536411603235}
   chantSprite: {fileID: 21300000, guid: ba8a1237ccc202a4691cbad41b839c8e, type: 3}
   castSprite: {fileID: 21300000, guid: 0e032a305520ca54ba1606d6af2119d5, type: 3}
+  perfectRingSprite: {fileID: 21300000, guid: f5c26720adced5b4887e10a0b1c02786, type: 3}
+  perfectRingScale: 1.22
+  rotationDegreesPerBeat: 360
+  colorCyclesPerBeat: 2
 --- !u!1 &4875783030764711403
 GameObject:
   m_ObjectHideFlags: 0

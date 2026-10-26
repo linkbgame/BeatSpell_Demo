@@ -57,7 +57,10 @@ namespace BeatSpell.Prototype
         public int QueueMarkerCount => markerView != null ? markerView.QueueMarkerCount : 0;
         public int TransientMarkerCount => markerView != null ? markerView.TransientMarkerCount : 0;
         public string LastMarkerKind => markerView != null ? markerView.LastMarkerKind : string.Empty;
-        public bool LastQueueMarkerHasRays => markerView != null && markerView.LastQueueMarkerHasRays;
+        public bool LastQueueMarkerHasPerfectRing =>
+            markerView != null && markerView.LastQueueMarkerHasPerfectRing;
+        public int ActivePerfectRingCount => markerView != null ? markerView.ActivePerfectRingCount : 0;
+        public bool LastQueueMarkerHasRays => LastQueueMarkerHasPerfectRing;
         public string LastQueueMarkerGrade => markerView != null ? markerView.LastQueueMarkerGrade : string.Empty;
         public string LastQueueMarkerPromptGrade => markerView != null ? markerView.LastQueueMarkerPromptGrade : string.Empty;
         public string LastPromptGrade => lastPromptGrade.ToString();
