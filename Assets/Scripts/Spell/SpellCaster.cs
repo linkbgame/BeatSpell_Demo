@@ -10,6 +10,8 @@ namespace BeatSpell.Spell
     {
         public event Action<SpellDefinition, float, float> OnSpellCast;
         public event Action OnVirtualCastFailed;
+        public event Action OnMatchFailed;
+        public event Action OnEmptyCastPenalty;
 
         public SpellDefinition LastMatchedSpell { get; private set; }
         public float LastDamageFactor { get; private set; }
@@ -46,6 +48,7 @@ namespace BeatSpell.Spell
             LastDamageFactor = 0f;
             LastSpellLog = "EmptyCastPenalty";
             Debug.Log("[Spell] EmptyCastPenalty | input locked for half beat");
+            OnEmptyCastPenalty?.Invoke();
         }
 
         public void LogInputRejected()
@@ -70,6 +73,7 @@ namespace BeatSpell.Spell
             LastDamageFactor = 0f;
             LastSpellLog = "MatchFailed";
             Debug.Log("[Spell] MatchFailed | sequence cleared");
+            OnMatchFailed?.Invoke();
         }
 
         public void LogAutoCastFailed()

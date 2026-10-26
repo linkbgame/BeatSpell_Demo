@@ -557,3 +557,29 @@ flowchart TD
   - `Master=0.5` + `Combat=0.5` 后预览音量 `1 → 0.25`；`Sfx` 静音后为 0。
   - `AudioSystem` 未挂玩法脚本。
 - **状态**：completed。后续接入玩法时再订阅 `OnRhythmInput` / `OnSpellCast` / `OnVirtualCastFailed`。
+
+## 节拍接入音效（最小接入 · 2026-10-26）
+
+- **基准 plan（只读）**：`Assets/Docs/第4轮魔法完整补完plan.md` 仍不修改。实现依据 `.cursor/plans/节拍接入音效_3349d8a9.plan.md`。
+- **本轮目标**：把现有 6 个全局 SFX 接到节拍/施法流程，先试听；不扩展 Audio API，不改 `SpellDefinition`，不做按魔法分轨。
+- **规则澄清**：
+  - Chant 听 `OnRhythmInput`：Perfect → `ChantPerfect`，否则 `ChantNormal`。
+  - Cast **不**听 `OnRhythmInput`；只听 `SpellCaster` 结果。
+  - `OnSpellCast`：`CastSuccess`，再按 `damageFactor>=1` 播 `SpellPerfect` 否则 `SpellNormal`。火焰/半拍/四分之一拍本轮同听这两条。
+  - `MatchFailed` / `EmptyCastPenalty` / `VirtualCastFailed`：仅 `CastFailed`。
+  - `InputRejected` / `ChantExpired` 不发声。
+- **改动摘要**：
+  - `Assets/Scripts/Spell/SpellCaster.cs`：新增 `OnMatchFailed`、`OnEmptyCastPenalty`，仅在对应 `Log*` 末尾 Invoke。
+  - `Assets/Scripts/Audio/RhythmGameplayAudioBridge.cs`：订阅输入与施法结果，只调 `BeatSpellAudioSystem.Play`。
+  - `Assets/Scenes/DemoScene.unity`：`AudioSystem` 挂 Bridge，引用 `BeatSpellAudioSystem` / `PlayerRhythmInputController` / `SpellCaster`。
+- **Inspector**：选中 `AudioSystem`，确认 `RhythmGameplayAudioBridge` 三个引用已填。Play 后按 J/K 试听。手感只调 Cue / 总线音量，不要改判定窗口。
+- **MCP 验收**：Play 模式自动化 **7/7 PASS**。编译 **0 Error**。前缀 `[Audio]` / `[Spell]`。
+  - A：`Chant 0/0` → `ChantPerfect`。
+  - B：`Chant 0/200` Weak → `ChantNormal`。
+  - C：`Chant 0 + Cast 1` → `ChantPerfect|CastSuccess|SpellPerfect`，`Matched Fireball`，`damageFactor=1`，血量 20→10。
+  - D：`Chant 0 + Cast 1/55ms` Good → `CastSuccess|SpellNormal`，`damageFactor=0.8`，血量 20→12。80ms 会超出 0.125 拍容差变成 `MatchFailed`，验收用 55ms。
+  - E：`Chant 0 + Cast 0.5` → 仅 `CastFailed`，无 `CastSuccess`。
+  - F：空 Cast → `EmptyCastPenalty` + 仅 `CastFailed`。
+  - G：`Chant 0` 后 `EvaluateLifecycle 4.0` → `VirtualCastFailed` + `CastFailed`。
+- **状态**：completed。
+- **目视**：Game 视图 Play，按 J 听咏唱挥剑，按对 K 听成功施法+魔法，空按或配方错只听失败。若某条太响/太弱只调对应 Cue Volume。
