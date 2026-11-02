@@ -647,7 +647,7 @@ AudioSource:
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
-  m_Volume: 1
+  m_Volume: 0.25
   m_Pitch: 1
   Loop: 1
   Mute: 0
@@ -1626,7 +1626,7 @@ MonoBehaviour:
     allowOverlap: 1
     cooldownSeconds: 0
   - eventId: 1
-    clip: {fileID: 8300000, guid: 315250292db4df340a9a1127767e7979, type: 3}
+    clip: {fileID: 8300000, guid: 1f3553cd7b09c73418c106261281ed7c, type: 3}
     bus: 4
     volume: 1
     pitch: 1
@@ -1641,16 +1641,16 @@ MonoBehaviour:
     loop: 0
     allowOverlap: 1
     cooldownSeconds: 0
-  - eventId: 3
-    clip: {fileID: 8300000, guid: 810232d47a092984f94e00828cf4e97f, type: 3}
+  - eventId: 4
+    clip: {fileID: 8300000, guid: fa69463472764894292b33516fccbf11, type: 3}
     bus: 4
     volume: 1
     pitch: 1
     loop: 0
     allowOverlap: 1
     cooldownSeconds: 0
-  - eventId: 4
-    clip: {fileID: 8300000, guid: fa69463472764894292b33516fccbf11, type: 3}
+  - eventId: 3
+    clip: {fileID: 8300000, guid: 810232d47a092984f94e00828cf4e97f, type: 3}
     bus: 4
     volume: 1
     pitch: 1
