@@ -154,8 +154,8 @@ flowchart TD
 
 ### 组件占位
 
-- 玩家：计划 `PlayerAnimationController`（或等价 `CharacterBeatAnimationController`），尚未接入场景逻辑。
-- 敌人：计划复用 Idle + 拍点脉冲；攻击/受击见第 5 轮及动画落地 plan。
+- 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7` 并做拍点颤抖。Chant / Cast 状态机尚未接入。
+- 后续完整状态机仍计划为 `PlayerAnimationController`（或等价控制器）；攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
 1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
@@ -630,4 +630,22 @@ flowchart TD
   - [`.cursor/plans/beatspell_原型系统_7b571e70.plan.md`](../.cursor/plans/beatspell_原型系统_7b571e70.plan.md)：玩法规则下增加交叉引用。
 - **依据 plan**：`.cursor/plans/玩家角色动画落地_4b509c4c.plan.md` 优先级 P0。
 - **MCP 验收**：文档-only，无 Play 用例。
-- **状态**：P0 **completed**；下一小步：落地 plan P1（玩家 Idle + 每整数拍颤抖）。
+- **状态**：P0 **completed**。
+
+## 玩家角色动画 · P1 待机动画 + 节拍颤抖（2026-11-03）
+
+- **本轮目标**：玩家与敌人开局自动播 Idle；每个整数拍明显上下颤抖一次，与当前拍白点共用 `BeatClock`，不读音轨 UI。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/BeatIdleAnimator.cs`：Idle 8 帧循环 + `BeatIndex` 拍点脉冲（Y 偏移 / scaleY），脉冲只作用在 `visualRoot`。
+  - `Assets/Scenes/DemoScene.unity`：`Player/PlayerVisual`、`Enemy/EnemyVisual` 绑定 `Idle_0…Idle_7` 与同一 `BeatClock`；禁用 Player 根上原 Animator / SpriteRenderer，避免抢 Sprite。
+- **Inspector**：`Player` / `Enemy` 上 `BeatIdleAnimator`。手感只调 `idleFrameRate`、`pulseDurationBeats`、`pulseYOffset`、`pulseScaleY`、`pulseCurve`，不要改判定窗口。默认 `idleFrameRate=8`、`pulseDurationBeats=0.2`、`pulseYOffset=0.08`、`pulseScaleY=1.06`。
+- **MCP 验收**：Editor 模拟 **18/18 PASS**。Console **0 Error / 0 Warning**。前缀 `[Anim]`。
+  - A：场景 2 个 `BeatIdleAnimator`，Idle 帧数均为 8，共用 `RhythmPrototype` 上的 `BeatClock`，视觉子节点存在。
+  - B：`EvaluateBeatIndex(0…4)` 玩家/敌人 `BeatPulseCount=4`。
+  - C：`LastPulseBeatIndex=4`，脉冲播放中。
+  - D：峰值 `CurrentPulseOffsetY=0.08`；`TickForTest` 结束后 Y=0、scaleY=1，`visualRoot.localPosition` 回零。
+  - E：本轮未模拟 J/K，不改 `[Beat]` / `[Spell]` 判定。
+- **测试入口**：`ResetDebugState()`、`EvaluateBeatIndex(int)`、`TickForTest(float)`。
+- **依据 plan**：`.cursor/plans/玩家角色动画落地_4b509c4c.plan.md` 优先级 P1。
+- **状态**：P1 **completed**；下一小步：落地 plan P2（覆盖式动画状态机骨架）。
+- **目视**：Play 后不按键，两侧骑士 Idle 循环；白点跳顶点时角色同时颠一下。若不够“掐拍”，只加大 `pulseYOffset` / `pulseScaleY` 或缩短 `pulseDurationBeats`。
