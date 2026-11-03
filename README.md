@@ -1,18 +1,64 @@
 # BeatSpell Demo
 
-Unity 6 音乐节奏施法原型（URP 2D）。
+Unity 6 音乐节奏战斗原型（URP 2D）。
+
+## 简介
+
+这是一个复刻《节奏天国：奇迹之星》里 **BeatSpell 地牢肉鸽节奏模式** 核心节拍玩法的个人项目。  
+没玩过原作的朋友，可以把它理解成：**把上音乐课跟着老师「动次打次」打节拍，做成在地牢里即时反应的战斗**——听 BPM、按咏唱/施法、匹配魔法、对敌人结算伤害；菱形音轨只是 UI 辅助，判定不依赖「目押音符」。
+
+## 目的
+
+- **练习 vibe coding**：玩法与实现几乎全程通过与 AI 协作完成，**没有人工手写一行代码**（C# / 场景 / 文档迭代均由 Cursor Agent + Plan 驱动，Unity MCP 做验收）。
+- **为爱发电**：想拆开研究这类「节拍驱动战斗」的运作逻辑与工程落地方式。
+
+## 当前进度（复盘）
+
+约两周内，在本地分支 `使用Grok` 上把下面这条链路做成了 **可 MCP 验收的原型**：
+
+**听拍 → 输入 → 匹配魔法 → 扣敌人血**，并叠加 **菱形音轨 UI、第 4 轮魔法规则（小数拍 / 容差 / 生命周期等）、音效桥接、玩家骑士动画（Idle / 咏唱池 / 施法成功与失败）**。
+
+**相对最初 Demo 愿景仍缺：**
+
+- 第 5 轮意义上的 **敌人按 BPM 预警与攻击**（`EnemyCombatController` 等未落地）
+- **玩家生存 / 失败**、**血条与 Hint UI**、**暂停与战斗统计**
+- **BGM 与战斗节拍闭环**、**¼ 拍专用 UI**（需另起音轨方案）
+- 部分 plan 文档与 **远程分支同步**（本地曾长期领先 `origin`）
+
+更细的迭代记录见 [`Assets/Docs/项目跟进plan.md`](Assets/Docs/项目跟进plan.md)。
+
+## 为什么没有继续做下去
+
+做项目本身是有趣的，但求职阶段必须把时间花在 **更匹配岗位的基础知识和对口实战** 上，优先级更高的任务不得不先做。
+
+另一方面，这个项目也暴露了我当前的两块短板：**动画与音效**。要接近任天堂级商业作品的视听反馈，细节极多；即使有 AI，仍需要大量 Token 与学习时间。亲自做下来才更清楚：**游戏是跨学科工程**，策划、程序、美术、音频要在同一套节奏里落地，成本远高于「把逻辑跑通」。
+
+## 收获
+
+Cursor 的 Token 与时间花得值：**愿意尝试，也学会主动收手**——在原型证明玩法链路后，把精力留给更紧迫的成长路径，而不是无限 polish 一个练手 Demo。
+
+## 开发与协作方式（简述）
+
+- **复杂玩法 / 系统设计**：ChatGPT 5.5 出总 Plan  
+- **小步拆解与实现**：Grok（Cursor Plan → Agent Build）  
+- **验收**：Unity MCP（Console、`SimulateStep` 等），结论写入跟进文档  
 
 ## 环境
 
-- Unity `6000.3.26f1`（见 `ProjectSettings/ProjectVersion.txt`）
+- Unity **6000.3.26f1**（见 `ProjectSettings/ProjectVersion.txt`）
 
 ## 克隆后
 
-1. 用 Unity Hub 打开本仓库根目录。
-2. 首次打开等待 Package 解析与导入完成。
-3. 若使用 Git LFS：先执行 `git lfs install`，再 `git lfs pull`（`.gitattributes` 已配置常见二进制资源）。
+1. 用 Unity Hub 打开仓库根目录。  
+2. 首次打开等待 Package 解析与导入完成。  
+3. 若使用 Git LFS：先 `git lfs install`，再 `git lfs pull`（`.gitattributes` 已配置常见二进制资源）。  
+4. 打开场景 **`Assets/Scenes/DemoScene.unity`**（或项目中当前主测试场景），Play 后 **J** 咏唱、**K** 施法（以 Input System 绑定为准）。
 
 ## 仓库说明
 
-- `.gitignore`：忽略 `Library/`、`Temp/`、`Logs/`、`UserSettings/` 等本地生成内容。
-- `.gitattributes`：Unity YAML 合并与 LFS 规则。
+- `.gitignore`：忽略 `Library/`、`Temp/`、`Logs/`、`UserSettings/` 等本地生成内容。  
+- `.gitattributes`：Unity YAML 合并与 LFS 规则。  
+
+## 许可与声明
+
+本项目为 **非商用、学习向复刻研究**，与任天堂及《节奏天国》系列无关联；原作版权归原权利方所有。
