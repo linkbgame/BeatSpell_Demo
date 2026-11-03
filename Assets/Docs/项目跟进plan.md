@@ -156,7 +156,7 @@ flowchart TD
 ### 组件占位
 
 - 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。
-- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；合法 Chant 从 `Chant_0`…`Chant_4` 池抽一个 Animator state。`CastSuccess` / `CastFailed` 入口保留，尚未订阅施法结果。Clip 内容由用户在 Unity 中替换。
+- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；合法 Chant 从 `Chant_0`…`Chant_4` 池抽一个 Animator state。匹配成功订阅 `SpellCaster.OnSpellCast` 播 `CastSuccess`。`CastFailed` 尚未订阅失败事件。Clip 内容由用户在 Unity 中替换。
 - 攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
@@ -706,3 +706,20 @@ flowchart TD
 - **测试入口**：`PlayChantFromPool(float)`、`EvaluateChantLifecycle(float)`、`LastChantIndex`、`PreviousChantIndex`、`ActiveChantHeadBeatFloat`、`HasActiveChantContext`。
 - **状态**：P3 **completed**；下一小步：落地 plan P4（`SpellCaster.OnSpellCast` → CastSuccess）。
 - **目视**：Play 后按 J 合法咏唱应切到某一组 `Chant_n`（当前 5 槽暂共用占位 Clip，画面可能相同，但状态机会换 state 名）。P4 前施法成功仍不会自动播 CastSuccess。
+
+## 玩家角色动画 · P4 施法成功动画（2026-11-03）
+
+- **本轮目标**：配方匹配成功时只听 `SpellCaster.OnSpellCast`，播唯一 `CastSuccess` Clip；播完回 BeatFloat Idle。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/CharacterBeatAnimationController.cs`：订阅 `OnSpellCast` → `PlayCastSuccess()`；Play 模式下 `normalizedTime >= 1` 回 Idle；MCP `EvaluateCastSuccessComplete()`。无 Clip 时 Warning 且不闪回。
+  - 沿用 `CharacterAction.controller` 的 `CastSuccess` 与 `CastSuccess.anim`，不按 `damageFactor` 分支。
+- **Inspector**：`PlayerVisual` Animator 的 `CastSuccess` state 可换成你做好的斩击 Clip；state 名须为 `CastSuccess`。
+- **MCP 验收**：Editor **13/13 PASS**。Console **0 Error**。前缀 `[Anim]`。
+  - A：`Chant 0 + Cast 1` → `Matched`，状态 `CastSuccess`，咏唱上下文已清，Idle 关闭。
+  - B：`Chant 0/55ms + Cast 1`（`damageFactor=0.8`）仍为 `CastSuccess`。
+  - C：`EvaluateCastSuccessComplete()` 回 `Idle`。
+  - D：成功后立刻合法 Chant 覆盖为 `Chant`。
+  - E：`Chant 0 + Cast 0.5` 为 `MatchFailed`，**不是** `CastSuccess`（仍停在 Chant，等 P5）。
+- **测试入口**：`PlayCastSuccess()`、`EvaluateCastSuccessComplete()`、`CurrentStateName`、`HasActiveChantContext`。
+- **状态**：P4 **completed**；下一小步：落地 plan P5（MatchFailed / EmptyCast / VirtualCastFailed → CastFailed）。
+- **目视**：Play 后 J 再按对的 K（如拍 0 咏唱、拍 1 施法）应切到 `CastSuccess`；Clip 播完回 Idle。失败路径本轮仍不会播失败动画。

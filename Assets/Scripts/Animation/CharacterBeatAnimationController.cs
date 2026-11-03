@@ -15,8 +15,8 @@ namespace BeatSpell.Animation
     }
 
     /// <summary>
-    /// P3：Idle 由 BeatIdleAnimator 按 BeatFloat 驱动；合法 Chant 从 5 个 Animator state 池抽一个播放。
-    /// CastSuccess / CastFailed 入口保留，本轮不订阅施法结果事件。
+    /// Idle 由 BeatIdleAnimator 按 BeatFloat 驱动；合法 Chant 走 5 个 Animator state 池。
+    /// P4：匹配成功只听 SpellCaster.OnSpellCast，播完 CastSuccess 回 Idle。失败事件留给 P5。
     /// </summary>
     public class CharacterBeatAnimationController : MonoBehaviour
     {
@@ -43,9 +43,11 @@ namespace BeatSpell.Animation
         private int previousChantIndex = -1;
         private float activeChantHeadBeatFloat;
         private bool hasActiveChantContext;
-        private bool subscribed;
+        private bool subscribedBuffer;
+        private bool subscribedCaster;
         private bool warnedMissingAnimator;
         private bool warnedMissingController;
+        private bool warnedMissingCastSuccessClip;
         private readonly HashSet<string> warnedMissingStates = new HashSet<string>();
 
         public string CurrentStateName => currentState.ToString();
@@ -68,7 +70,7 @@ namespace BeatSpell.Animation
             Animator animator,
             RhythmPrototypeBootstrap host = null)
         {
-            UnsubscribeBuffer();
+            UnsubscribeEvents();
             beatClock = clock;
             idleAnimator = idle;
             actionAnimator = animator;
@@ -77,7 +79,7 @@ namespace BeatSpell.Animation
                 bootstrap = host;
             }
 
-            SubscribeBuffer();
+            SubscribeEvents();
         }
 
         public void ResetDebugState()
@@ -89,6 +91,7 @@ namespace BeatSpell.Animation
             hasActiveChantContext = false;
             warnedMissingAnimator = false;
             warnedMissingController = false;
+            warnedMissingCastSuccessClip = false;
             warnedMissingStates.Clear();
             ReturnToIdle();
             stateChangeCount = 0;
@@ -165,6 +168,19 @@ namespace BeatSpell.Animation
             ReturnToIdle();
         }
 
+        /// <summary>
+        /// MCP：模拟 CastSuccess Clip 播完。Edit 模式 Animator 不推进时间。
+        /// </summary>
+        public void EvaluateCastSuccessComplete()
+        {
+            if (currentState != CharacterAnimState.CastSuccess)
+            {
+                return;
+            }
+
+            ReturnToIdle();
+        }
+
         private void Awake()
         {
             CacheRefs();
@@ -173,7 +189,7 @@ namespace BeatSpell.Animation
         private void OnEnable()
         {
             CacheRefs();
-            SubscribeBuffer();
+            SubscribeEvents();
             if (currentState == CharacterAnimState.Idle)
             {
                 ApplyIdleOwnership();
@@ -182,7 +198,7 @@ namespace BeatSpell.Animation
 
         private void OnDisable()
         {
-            UnsubscribeBuffer();
+            UnsubscribeEvents();
         }
 
         private void Update()
@@ -193,6 +209,7 @@ namespace BeatSpell.Animation
             }
 
             EvaluateChantLifecycle(beatClock.BeatFloat);
+            EvaluateCastSuccessClipComplete();
         }
 
         private void CacheRefs()
@@ -235,31 +252,50 @@ namespace BeatSpell.Animation
             }
         }
 
-        private void SubscribeBuffer()
+        private void SubscribeEvents()
         {
-            if (subscribed || bootstrap == null || bootstrap.InputBuffer == null)
+            if (bootstrap == null)
             {
                 return;
             }
 
-            bootstrap.InputBuffer.OnEntryAdded -= HandleEntryAdded;
-            bootstrap.InputBuffer.OnEntryAdded += HandleEntryAdded;
-            bootstrap.InputBuffer.OnCleared -= HandleBufferCleared;
-            bootstrap.InputBuffer.OnCleared += HandleBufferCleared;
-            subscribed = true;
+            if (!subscribedBuffer && bootstrap.InputBuffer != null)
+            {
+                bootstrap.InputBuffer.OnEntryAdded -= HandleEntryAdded;
+                bootstrap.InputBuffer.OnEntryAdded += HandleEntryAdded;
+                bootstrap.InputBuffer.OnCleared -= HandleBufferCleared;
+                bootstrap.InputBuffer.OnCleared += HandleBufferCleared;
+                subscribedBuffer = true;
+            }
+
+            if (!subscribedCaster && bootstrap.Caster != null)
+            {
+                bootstrap.Caster.OnSpellCast -= HandleSpellCast;
+                bootstrap.Caster.OnSpellCast += HandleSpellCast;
+                subscribedCaster = true;
+            }
         }
 
-        private void UnsubscribeBuffer()
+        private void UnsubscribeEvents()
         {
-            if (!subscribed || bootstrap == null || bootstrap.InputBuffer == null)
+            if (bootstrap != null && bootstrap.InputBuffer != null && subscribedBuffer)
             {
-                subscribed = false;
-                return;
+                bootstrap.InputBuffer.OnEntryAdded -= HandleEntryAdded;
+                bootstrap.InputBuffer.OnCleared -= HandleBufferCleared;
             }
 
-            bootstrap.InputBuffer.OnEntryAdded -= HandleEntryAdded;
-            bootstrap.InputBuffer.OnCleared -= HandleBufferCleared;
-            subscribed = false;
+            if (bootstrap != null && bootstrap.Caster != null && subscribedCaster)
+            {
+                bootstrap.Caster.OnSpellCast -= HandleSpellCast;
+            }
+
+            subscribedBuffer = false;
+            subscribedCaster = false;
+        }
+
+        private void HandleSpellCast(SpellDefinition spell, float damageFactor, float damage)
+        {
+            PlayCastSuccess();
         }
 
         private void HandleEntryAdded(RhythmInputEntry entry)
@@ -291,6 +327,52 @@ namespace BeatSpell.Animation
 
             float lifetime = bootstrap != null ? bootstrap.ChantLifetimeBeats : 4f;
             return beatFloat >= activeChantHeadBeatFloat + lifetime;
+        }
+
+        private void EvaluateCastSuccessClipComplete()
+        {
+            if (currentState != CharacterAnimState.CastSuccess || actionAnimator == null || !actionAnimator.enabled)
+            {
+                return;
+            }
+
+            if (actionAnimator.IsInTransition(0))
+            {
+                return;
+            }
+
+            AnimatorStateInfo info = actionAnimator.GetCurrentAnimatorStateInfo(0);
+            if (!info.IsName(castSuccessStateName))
+            {
+                return;
+            }
+
+            if (!HasPlayableCurrentClip())
+            {
+                WarnOnce(ref warnedMissingCastSuccessClip, "[Anim] MissingCastSuccessClip | 保持 CastSuccess 直到被覆盖或 MCP ReturnToIdle");
+                return;
+            }
+
+            if (info.normalizedTime >= 1f)
+            {
+                ReturnToIdle();
+            }
+        }
+
+        private bool HasPlayableCurrentClip()
+        {
+            if (actionAnimator == null)
+            {
+                return false;
+            }
+
+            AnimatorClipInfo[] clips = actionAnimator.GetCurrentAnimatorClipInfo(0);
+            if (clips == null || clips.Length == 0 || clips[0].clip == null)
+            {
+                return false;
+            }
+
+            return clips[0].clip.length > 0f;
         }
 
         private int PickChantIndex()
