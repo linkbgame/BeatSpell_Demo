@@ -154,8 +154,9 @@ flowchart TD
 
 ### 组件占位
 
-- 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。Chant / Cast 状态机尚未接入。
-- 后续完整状态机仍计划为 `PlayerAnimationController`（或等价控制器）；攻击/受击见第 5 轮及动画落地 plan。
+- 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。
+- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；`Chant` / `CastSuccess` / `CastFailed` 走 `PlayerVisual` 上的 Animator（`CharacterAction.controller`）。Clip 内容由用户后续配置。P3 动画池尚未接入玩法事件。
+- 攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
 1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
@@ -666,3 +667,24 @@ flowchart TD
 - **测试入口**：`ResetDebugState()`、`SyncFrameFromClock()`、`SyncFrameForBeatFloat(float)`、`CurrentFrameIndex`。
 - **状态**：completed。
 - **目视**：Play 后不按键，Idle 每拍内走完 9 帧，与白点同周期；角色不再上下颠。
+
+## 玩家角色动画 · P2 动画状态机骨架（2026-11-03）
+
+- **本轮目标**：落地覆盖式状态机骨架；Idle 继续按 `BeatFloat` 播 N 帧，非 Idle 交给 Animator Controller / Clip。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/CharacterBeatAnimationController.cs`：统一入口 `PlayChant()` / `PlayCastSuccess()` / `PlayCastFailed()` / `ReturnToIdle()`；非 Idle 关闭 `BeatIdleAnimator` 并 `Animator.Play` 对应 state。
+  - `Assets/Animation/CharacterAction.controller`：最小状态名框架 `Chant` / `CastSuccess` / `CastFailed`，Motion 为空，待用户拖入 Clip。
+  - `Assets/Scenes/DemoScene.unity`：`Player` 挂状态机；`PlayerVisual` 挂 Animator 并引用该 Controller（默认禁用）；Player 根上旧 `Idle_Animator` 保持禁用。
+  - `.cursor/plans/玩家角色动画落地_4b509c4c.plan.md`：Idle 基线改为 BeatFloat 同步帧；`animation-state-machine` 标 completed。
+- **Inspector**：选中 `Player`，确认 `CharacterBeatAnimationController` 引用 `BeatClock`、`BeatIdleAnimator`、`PlayerVisual` 的 Animator。选中 `PlayerVisual` 的 Animator，把你做好的 Clip 拖到 `Chant` / `CastSuccess` / `CastFailed` 三个 state。state 名必须与脚本字段一致。
+- **MCP 验收**：Editor **18/18 PASS**。Console **0 Error**。前缀 `[Anim]`。
+  - A：Player 有状态机，初始 `Idle`，双方 Idle 帧数 9。
+  - B：`beatFloat=0.49` → Idle 帧 4。
+  - C：`PlayChant()` → `Chant`，Idle 关闭，Animator 收到 `Chant`。
+  - D：`PlayCastFailed()` 立即覆盖为 `CastFailed`。
+  - E：`PlayCastSuccess()` 覆盖为 `CastSuccess`。
+  - F：`ReturnToIdle()` 后 Idle 恢复，`beatFloat=0.89` → 帧 8。
+  - G：视觉节点无脉冲位移；`CharacterAction` Controller 已挂上。
+- **测试入口**：`ResetDebugState()`、`PlayChant()`、`PlayCastSuccess()`、`PlayCastFailed()`、`ReturnToIdle()`、`CurrentStateName`、`CurrentAnimatorStateName`、`IsIdleAnimatorEnabled`。
+- **状态**：P2 **completed**；下一小步：落地 plan P3（咏唱动画池 + 订阅合法 Chant）。
+- **目视**：Play 后仍是节拍 Idle。P2 尚未订阅 J/K；要看动作需先把 Clip 配进 Controller，再用 MCP 调 `PlayChant()` 或等 P3 接输入。
