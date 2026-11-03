@@ -1093,7 +1093,13 @@ MonoBehaviour:
   beatClock: {fileID: 404296585}
   idleAnimator: {fileID: 685058009}
   actionAnimator: {fileID: 2144452715}
-  chantStateName: Chant
+  bootstrap: {fileID: 404296583}
+  chantStateNames:
+  - Chant_0
+  - Chant_1
+  - Chant_2
+  - Chant_3
+  - Chant_4
   castSuccessStateName: CastSuccess
   castFailedStateName: CastFailed
 --- !u!1001 &704430196
@@ -1111,6 +1117,18 @@ PrefabInstance:
     - target: {fileID: 111341772985438541, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_SizeDelta.y
       value: 105.89632
+      objectReference: {fileID: 0}
+    - target: {fileID: 111341772985438541, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 1.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 111341772985438541, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.6
+      objectReference: {fileID: 0}
+    - target: {fileID: 111341772985438541, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
+      propertyPath: m_LocalScale.z
+      value: 1.6
       objectReference: {fileID: 0}
     - target: {fileID: 594492425072628486, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_SizeDelta.x
@@ -1150,7 +1168,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1121450819583079592, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 1279717983382969562, guid: 11b9cd1738373284d8a66841eca7d0e4, type: 3}
       propertyPath: m_IsActive

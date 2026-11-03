@@ -155,7 +155,7 @@ flowchart TD
 ### 组件占位
 
 - 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。
-- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；`Chant` / `CastSuccess` / `CastFailed` 走 `PlayerVisual` 上的 Animator（`CharacterAction.controller`）。Clip 内容由用户后续配置。P3 动画池尚未接入玩法事件。
+- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；合法 Chant 从 `Chant_0`…`Chant_4` 池抽一个 Animator state。`CastSuccess` / `CastFailed` 入口保留，尚未订阅施法结果。Clip 内容由用户在 Unity 中替换。
 - 攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
@@ -688,3 +688,20 @@ flowchart TD
 - **测试入口**：`ResetDebugState()`、`PlayChant()`、`PlayCastSuccess()`、`PlayCastFailed()`、`ReturnToIdle()`、`CurrentStateName`、`CurrentAnimatorStateName`、`IsIdleAnimatorEnabled`。
 - **状态**：P2 **completed**；下一小步：落地 plan P3（咏唱动画池 + 订阅合法 Chant）。
 - **目视**：Play 后仍是节拍 Idle。P2 尚未订阅 J/K；要看动作需先把 Clip 配进 Controller，再用 MCP 调 `PlayChant()` 或等 P3 接输入。
+
+## 玩家角色动画 · P3 咏唱动画池（2026-11-03）
+
+- **本轮目标**：合法 Chant 入缓冲时从 5 个 Animator state 中抽一个播放，相邻不重复；队首生命周期结束后回 Idle。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/CharacterBeatAnimationController.cs`：订阅 `SpellInputBuffer.OnEntryAdded`（仅 Chant）；`PlayChantFromPool` 排除上一索引；`EvaluateChantLifecycle` 在 `head + ChantLifetimeBeats` 回 Idle。
+  - `Assets/Animation/CharacterAction.controller`：新增 `Chant_0`…`Chant_4`，暂用现有 `Chant.anim` 占位。
+  - `Assets/Scenes/DemoScene.unity`：`Player` 状态机绑定 `RhythmPrototypeBootstrap` 与 5 个 state 名。
+- **Inspector**：选中 `PlayerVisual` 的 Animator，打开 `CharacterAction`，把 5 组咏唱 Clip 分别拖到 `Chant_0`…`Chant_4`。state 名须与 `chantStateNames` 一致。
+- **MCP 验收**：Editor **10/10 PASS**。Console **0 Error**。前缀 `[Anim]`。
+  - A：状态机存在，`ChantPoolCount == 5`。
+  - B：连续 5 次合法 Chant（0 / 0.5 / 1 / 1.5 / 2）均进 `Chant`，相邻索引不重复，Idle 关闭。
+  - C：`head + 4 - 0.01` 仍为 `Chant`；`head + 4` 回 `Idle` 且 Idle Animator 恢复。
+  - D：空 Cast 后封锁窗口内 Chant 为 `InputRejected`，不进 Chant 状态。
+- **测试入口**：`PlayChantFromPool(float)`、`EvaluateChantLifecycle(float)`、`LastChantIndex`、`PreviousChantIndex`、`ActiveChantHeadBeatFloat`、`HasActiveChantContext`。
+- **状态**：P3 **completed**；下一小步：落地 plan P4（`SpellCaster.OnSpellCast` → CastSuccess）。
+- **目视**：Play 后按 J 合法咏唱应切到某一组 `Chant_n`（当前 5 槽暂共用占位 Clip，画面可能相同，但状态机会换 state 名）。P4 前施法成功仍不会自动播 CastSuccess。
