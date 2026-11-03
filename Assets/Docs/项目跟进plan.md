@@ -156,7 +156,7 @@ flowchart TD
 ### 组件占位
 
 - 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。
-- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；合法 Chant 从 `Chant_0`…`Chant_4` 池抽一个 Animator state。匹配成功订阅 `SpellCaster.OnSpellCast` 播 `CastSuccess`。`CastFailed` 尚未订阅失败事件。Clip 内容由用户在 Unity 中替换。
+- 玩家状态机：`CharacterBeatAnimationController` 已挂到 `Player`。Idle 走 `BeatIdleAnimator`；合法 Chant 从 `Chant_0`…`Chant_4` 池抽一个 Animator state。匹配成功播 `CastSuccess`；`MatchFailed` / 空 Cast / 虚拟失败播 `CastFailed`（生命周期 0.5 拍留痕）。Clip 内容由用户在 Unity 中替换。
 - 攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
@@ -723,3 +723,21 @@ flowchart TD
 - **测试入口**：`PlayCastSuccess()`、`EvaluateCastSuccessComplete()`、`CurrentStateName`、`HasActiveChantContext`。
 - **状态**：P4 **completed**；下一小步：落地 plan P5（MatchFailed / EmptyCast / VirtualCastFailed → CastFailed）。
 - **目视**：Play 后 J 再按对的 K（如拍 0 咏唱、拍 1 施法）应切到 `CastSuccess`；Clip 播完回 Idle。失败路径本轮仍不会播失败动画。
+
+## 玩家角色动画 · P5 施法失败动画（2026-11-03）
+
+- **本轮目标**：三种失败都播唯一 `CastFailed`，生命周期对齐失败留痕 0.5 拍；新 Chant / 成功 / 新失败可覆盖。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/CharacterBeatAnimationController.cs`：订阅 `OnMatchFailed` / `OnEmptyCastPenalty` / `OnVirtualCastFailed`；`FailedStateEndBeatFloat = start + 0.5`；Clip 播完不立刻回 Idle。
+  - `Assets/Scripts/Debug/RhythmPrototypeBootstrap.cs`：`LastProcessedBeatFloat`、`FailedInputMarkerClearDelayBeats`。
+- **Inspector**：`PlayerVisual` Animator 的 `CastFailed` 可换成收招 Clip；state 名须为 `CastFailed`。
+- **MCP 验收**：Editor **13/13 PASS**。Console **0 Error**。前缀 `[Anim]`。
+  - A：`Chant 0 + Cast 0.5` → `CastFailed`；`end-0.01` 仍失败，`end=1` 回 Idle。
+  - B：空 Cast → `EmptyCastPenalty` + `CastFailed`。
+  - C：`Chant 0` 后 `EvaluateLifecycle 4.0` → `VirtualCastFailed` + `CastFailed`。
+  - D：`Chant 0` 再 `Chant 4.0` → 最终 `Chant`。
+  - E：连续空 Cast 重播 `CastFailed`。
+  - F：`Chant 0 + Cast 1` 仍为 `CastSuccess`。
+- **测试入口**：`PlayCastFailed()`、`EvaluateCastFailedLifecycle(float)`、`FailedStateEndBeatFloat`。
+- **状态**：P5 **completed**；下一小步：落地 plan P6 敌人 Idle 已完成；P7 为 MCP 查询补全（可选）。
+- **目视**：Play 后空按 K、或咏唱后错拍施法、或咏唱满 4 拍不施法，应看到失败动画约半拍后回 Idle。

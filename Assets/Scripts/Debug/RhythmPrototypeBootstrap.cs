@@ -33,6 +33,7 @@ namespace BeatSpell.Prototype
         private double failedInputMarkersClearDspTime;
         private bool hasFailedInputMarkersPendingClear;
         private float lastVirtualCastFailedBeatFloat;
+        private float lastProcessedBeatFloat;
         private BeatTimingGrade lastPromptGrade = BeatTimingGrade.Weak;
         private float lastPromptAnchorBeatFloat;
         private float lastPromptDeltaMs;
@@ -84,7 +85,9 @@ namespace BeatSpell.Prototype
         public float LastDamageFactor => spellCaster != null ? spellCaster.LastDamageFactor : 0f;
         public bool HasFailedInputMarkersPendingClear => hasFailedInputMarkersPendingClear;
         public float FailedCastCooldownSeconds => failedCastCooldownBeats * ResolveSecondsPerBeat();
+        public float FailedInputMarkerClearDelayBeats => failedInputMarkerClearDelayBeats;
         public float FailedInputMarkerClearDelaySeconds => failedInputMarkerClearDelayBeats * ResolveSecondsPerBeat();
+        public float LastProcessedBeatFloat => lastProcessedBeatFloat;
         public float ChantLifetimeSeconds => chantLifetimeBeats * ResolveSecondsPerBeat();
         public float EmptyCastPenaltySeconds => emptyCastPenaltyBeats * ResolveSecondsPerBeat();
         public float ChantRolloverGraceBeats => chantRolloverGraceBeats;
@@ -224,6 +227,7 @@ namespace BeatSpell.Prototype
             failedInputMarkersClearDspTime = 0d;
             hasFailedInputMarkersPendingClear = false;
             lastVirtualCastFailedBeatFloat = 0f;
+            lastProcessedBeatFloat = 0f;
             lastPromptGrade = BeatTimingGrade.Weak;
             lastPromptAnchorBeatFloat = 0f;
             lastPromptDeltaMs = 0f;
@@ -416,6 +420,7 @@ namespace BeatSpell.Prototype
         private bool EvaluateLifecycle(BeatTimingInfo timing, BeatInputType? incomingType = null)
         {
             queryDspTime = timing.DspTime;
+            lastProcessedBeatFloat = timing.BeatFloat;
             ExpireFailureInputMarkersIfNeeded(timing.DspTime);
 
             bool expired = spellInputBuffer != null &&

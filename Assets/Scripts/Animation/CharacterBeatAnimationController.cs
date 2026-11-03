@@ -16,7 +16,7 @@ namespace BeatSpell.Animation
 
     /// <summary>
     /// Idle 由 BeatIdleAnimator 按 BeatFloat 驱动；合法 Chant 走 5 个 Animator state 池。
-    /// P4：匹配成功只听 SpellCaster.OnSpellCast，播完 CastSuccess 回 Idle。失败事件留给 P5。
+    /// 匹配成功听 OnSpellCast；失败听 MatchFailed / EmptyCast / VirtualCastFailed，生命周期对齐 0.5 拍留痕。
     /// </summary>
     public class CharacterBeatAnimationController : MonoBehaviour
     {
@@ -42,6 +42,8 @@ namespace BeatSpell.Animation
         private int lastChantIndex = -1;
         private int previousChantIndex = -1;
         private float activeChantHeadBeatFloat;
+        private float failedStateStartBeatFloat;
+        private float failedStateEndBeatFloat;
         private bool hasActiveChantContext;
         private bool subscribedBuffer;
         private bool subscribedCaster;
@@ -63,6 +65,8 @@ namespace BeatSpell.Animation
         public int PreviousChantIndex => previousChantIndex;
         public float ActiveChantHeadBeatFloat => activeChantHeadBeatFloat;
         public bool HasActiveChantContext => hasActiveChantContext;
+        public float FailedStateStartBeatFloat => failedStateStartBeatFloat;
+        public float FailedStateEndBeatFloat => failedStateEndBeatFloat;
 
         public void Bind(
             BeatClock clock,
@@ -88,6 +92,8 @@ namespace BeatSpell.Animation
             lastChantIndex = -1;
             previousChantIndex = -1;
             activeChantHeadBeatFloat = 0f;
+            failedStateStartBeatFloat = 0f;
+            failedStateEndBeatFloat = 0f;
             hasActiveChantContext = false;
             warnedMissingAnimator = false;
             warnedMissingController = false;
@@ -108,6 +114,7 @@ namespace BeatSpell.Animation
             previousChantIndex = lastChantIndex;
             lastChantIndex = index;
             hasActiveChantContext = true;
+            ClearFailedLifecycle();
             activeChantHeadBeatFloat = bootstrap != null
                 ? bootstrap.HeadBufferBeatFloat
                 : ownerBeatFloat;
@@ -121,18 +128,26 @@ namespace BeatSpell.Animation
         public void PlayCastSuccess()
         {
             hasActiveChantContext = false;
+            ClearFailedLifecycle();
             EnterActionState(CharacterAnimState.CastSuccess, castSuccessStateName);
         }
 
         public void PlayCastFailed()
         {
             hasActiveChantContext = false;
+            float start = ResolveFailedStartBeatFloat();
+            float delay = bootstrap != null ? bootstrap.FailedInputMarkerClearDelayBeats : 0.5f;
+            failedStateStartBeatFloat = start;
+            failedStateEndBeatFloat = start + delay;
             EnterActionState(CharacterAnimState.CastFailed, castFailedStateName);
+            Debug.Log(
+                $"[Anim] CastFailed | start={failedStateStartBeatFloat:0.###} end={failedStateEndBeatFloat:0.###}");
         }
 
         public void ReturnToIdle()
         {
             hasActiveChantContext = false;
+            ClearFailedLifecycle();
             ApplyState(CharacterAnimState.Idle, string.Empty);
             if (actionAnimator != null)
             {
@@ -181,6 +196,22 @@ namespace BeatSpell.Animation
             ReturnToIdle();
         }
 
+        /// <summary>
+        /// MCP：按指定拍位置检查失败动画生命周期，对齐失败留痕 0.5 拍。
+        /// </summary>
+        public void EvaluateCastFailedLifecycle(float beatFloat)
+        {
+            if (currentState != CharacterAnimState.CastFailed)
+            {
+                return;
+            }
+
+            if (beatFloat >= failedStateEndBeatFloat)
+            {
+                ReturnToIdle();
+            }
+        }
+
         private void Awake()
         {
             CacheRefs();
@@ -210,6 +241,7 @@ namespace BeatSpell.Animation
 
             EvaluateChantLifecycle(beatClock.BeatFloat);
             EvaluateCastSuccessClipComplete();
+            EvaluateCastFailedLifecycle(beatClock.BeatFloat);
         }
 
         private void CacheRefs()
@@ -272,6 +304,12 @@ namespace BeatSpell.Animation
             {
                 bootstrap.Caster.OnSpellCast -= HandleSpellCast;
                 bootstrap.Caster.OnSpellCast += HandleSpellCast;
+                bootstrap.Caster.OnMatchFailed -= HandleCastFailed;
+                bootstrap.Caster.OnMatchFailed += HandleCastFailed;
+                bootstrap.Caster.OnEmptyCastPenalty -= HandleCastFailed;
+                bootstrap.Caster.OnEmptyCastPenalty += HandleCastFailed;
+                bootstrap.Caster.OnVirtualCastFailed -= HandleCastFailed;
+                bootstrap.Caster.OnVirtualCastFailed += HandleCastFailed;
                 subscribedCaster = true;
             }
         }
@@ -287,6 +325,9 @@ namespace BeatSpell.Animation
             if (bootstrap != null && bootstrap.Caster != null && subscribedCaster)
             {
                 bootstrap.Caster.OnSpellCast -= HandleSpellCast;
+                bootstrap.Caster.OnMatchFailed -= HandleCastFailed;
+                bootstrap.Caster.OnEmptyCastPenalty -= HandleCastFailed;
+                bootstrap.Caster.OnVirtualCastFailed -= HandleCastFailed;
             }
 
             subscribedBuffer = false;
@@ -296,6 +337,11 @@ namespace BeatSpell.Animation
         private void HandleSpellCast(SpellDefinition spell, float damageFactor, float damage)
         {
             PlayCastSuccess();
+        }
+
+        private void HandleCastFailed()
+        {
+            PlayCastFailed();
         }
 
         private void HandleEntryAdded(RhythmInputEntry entry)
@@ -327,6 +373,27 @@ namespace BeatSpell.Animation
 
             float lifetime = bootstrap != null ? bootstrap.ChantLifetimeBeats : 4f;
             return beatFloat >= activeChantHeadBeatFloat + lifetime;
+        }
+
+        private float ResolveFailedStartBeatFloat()
+        {
+            if (bootstrap == null)
+            {
+                return beatClock != null ? beatClock.BeatFloat : 0f;
+            }
+
+            if (bootstrap.LastSpellLog == "VirtualCastFailed")
+            {
+                return bootstrap.LastVirtualCastFailedBeatFloat;
+            }
+
+            return bootstrap.LastProcessedBeatFloat;
+        }
+
+        private void ClearFailedLifecycle()
+        {
+            failedStateStartBeatFloat = 0f;
+            failedStateEndBeatFloat = 0f;
         }
 
         private void EvaluateCastSuccessClipComplete()
