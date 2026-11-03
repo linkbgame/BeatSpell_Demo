@@ -135,12 +135,12 @@ flowchart TD
 ### 美术资源
 
 - 目录：[`Assets/Art/Character/`](../Art/Character/)（如 `Idle.png` 等，128×64 网格、PPU 100、Filter Point、Bottom Center Pivot）。
-- 敌人与玩家可共用同一套骑士资源，或敌人后续换皮；**待机拍点颤抖**设计上玩家与敌人同拍同步（见动画落地 plan P1/P6）。
+- 敌人与玩家可共用同一套骑士资源，或敌人后续换皮；**待机帧切换**设计上玩家与敌人同拍同步（见动画落地 plan P1/P6）。
 
 ### 架构约束（必守）
 
 - 角色动画 **只读玩法层事件与时间轴**，例如：
-  - `BeatClock`（`BeatIndex` / `BeatFloat` / `SecondsPerBeat`）——待机每整数拍颤抖与白点 **共用同一时钟**，但 **不读取** `DiamondBeatTrackView` 内部状态；
+  - `BeatClock`（`BeatIndex` / `BeatFloat` / `SecondsPerBeat`）——待机每拍内按 `BeatFloat` 播完 N 帧 Idle，与白点 **共用同一时钟**，但 **不读取** `DiamondBeatTrackView` 内部状态；
   - `PlayerRhythmInputController.OnRhythmInput`（合法 `Chant`；`InputRejected` 不播咏唱动画）；
   - `SpellCaster`：`OnSpellCast`、`OnMatchFailed`、`OnEmptyCastPenalty`、`OnVirtualCastFailed`。
 - 角色动画 **不得** 参与 `RhythmJudge`、`SpellInputBuffer`、`SpellMatcher` 判定，不得反向驱动留痕或伤害。
@@ -148,13 +148,13 @@ flowchart TD
 
 ### 状态与覆盖（预定方向，实现见落地 plan）
 
-- 默认 **Idle**（循环 Idle 序列 + 每整数拍一次明显上下颤抖，对齐当前拍白点跳顶点）。
+- 默认 **Idle**（每拍内按 `BeatFloat` 播完 N 帧 Idle 序列，与白点同周期；**无**位移/缩放拍点脉冲）。
 - **新输入覆盖旧动画**：新的 Chant / Cast 成功 / Cast 失败可直接打断上一段角色动画（死亡等更高优先级状态除外）。
 - **Chant 表现（已审核方向）**：与 Chant 留痕同帧开播；播完 **停在结尾 pose**，在队首生命周期（`headBeatFloat + 4` 拍）内 **不回 Idle**；队首留痕清除且未成功施法时，先 **咏唱/施法失败类动画** 再回 Idle。匹配成功由 **CastSuccess** 覆盖 Chant；`MatchFailed` / 空施法 / 虚拟 Cast 失败走 **CastFailed** 与现有失败留痕/CD 规则对齐。
 
 ### 组件占位
 
-- 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7` 并做拍点颤抖。Chant / Cast 状态机尚未接入。
+- 玩家 / 敌人待机：`BeatIdleAnimator` 已挂到 `DemoScene` 的 `Player` 与 `Enemy`，视觉子节点 `PlayerVisual` / `EnemyVisual` 播 `Idle_0…Idle_7`（当前 9 格含末帧重复 `Idle_0`），帧索引由 `BeatFloat` 驱动。Chant / Cast 状态机尚未接入。
 - 后续完整状态机仍计划为 `PlayerAnimationController`（或等价控制器）；攻击/受击见第 5 轮及动画落地 plan。
 
 ## 实现顺序
@@ -649,3 +649,20 @@ flowchart TD
 - **依据 plan**：`.cursor/plans/玩家角色动画落地_4b509c4c.plan.md` 优先级 P1。
 - **状态**：P1 **completed**；下一小步：落地 plan P2（覆盖式动画状态机骨架）。
 - **目视**：Play 后不按键，两侧骑士 Idle 循环；白点跳顶点时角色同时颠一下。若不够“掐拍”，只加大 `pulseYOffset` / `pulseScaleY` 或缩短 `pulseDurationBeats`。
+- **备注**：下列脉冲相关说明已由 **P1 补丁：移除 Idle 脉冲** 取代，仅作历史记录。
+
+## 玩家角色动画 · P1 补丁：移除 Idle 脉冲（2026-11-03）
+
+- **本轮目标**：去掉 `BeatIdleAnimator` 拍点脉冲与 `deltaTime` 帧推进，仅保留与 `BeatClock.BeatFloat` 对齐的 Idle 帧动画。
+- **改动摘要**：
+  - `Assets/Scripts/Animation/BeatIdleAnimator.cs`：删除 `visualRoot`、脉冲曲线与 `EvaluateBeatIndex` 等；`Update` 内 `beatFraction = BeatFloat - Floor(BeatFloat)`，`index = Clamp(Floor(beatFraction * N), 0, N-1)` 换 Sprite。
+  - `Assets/Scenes/DemoScene.unity`：Unity 重载后丢弃无效 pulse 序列化字段；Player/Enemy 仍 9 帧 Idle + 指向 `RhythmPrototype` 的 `BeatClock`。
+- **Inspector**：`BeatIdleAnimator` 仅 **Beat Clock**、**Sprite Renderer**、**Idle Frames**（9 格）。无 `idleFrameRate` / 脉冲参数。
+- **MCP 验收**：Editor **7/7 PASS**。Console **0 Error**。前缀 `[Anim]`。
+  - A：Player/Enemy 各 1 个组件，`IdleFrameCount == 9`。
+  - B：`beatFloat=0.0` → 帧 0；`0.49` → 约 4；`0.89` → 8。
+  - C：`beatFloat=1.0` 与 `0.0` 均为帧 0。
+  - D：`PlayerVisual` / `EnemyVisual` `localPosition` 恒为 `(0,0,0)`。
+- **测试入口**：`ResetDebugState()`、`SyncFrameFromClock()`、`SyncFrameForBeatFloat(float)`、`CurrentFrameIndex`。
+- **状态**：completed。
+- **目视**：Play 后不按键，Idle 每拍内走完 9 帧，与白点同周期；角色不再上下颠。

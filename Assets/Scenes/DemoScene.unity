@@ -438,7 +438,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.Animation.BeatIdleAnimator
   beatClock: {fileID: 404296585}
-  visualRoot: {fileID: 732856447}
   spriteRenderer: {fileID: 732856446}
   idleFrames:
   - {fileID: 4723107735738678597, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
@@ -450,36 +449,6 @@ MonoBehaviour:
   - {fileID: 3278449094680734212, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
   - {fileID: 3384493420599841878, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
   - {fileID: 4723107735738678597, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
-  idleFrameRate: 8
-  pulseDurationBeats: 0.15
-  pulseYOffset: 0.04
-  pulseScaleY: 1.03
-  pulseOnEnable: 0
-  logBeatPulse: 0
-  pulseCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0.6
-      inSlope: 0
-      outSlope: -4
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
 --- !u!1 &322512534
 GameObject:
   m_ObjectHideFlags: 0
@@ -1061,6 +1030,8 @@ GameObject:
   m_Component:
   - component: {fileID: 685058007}
   - component: {fileID: 685058009}
+  - component: {fileID: 685058011}
+  - component: {fileID: 685058010}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -1097,7 +1068,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeatSpell.Animation.BeatIdleAnimator
   beatClock: {fileID: 404296585}
-  visualRoot: {fileID: 2144452714}
   spriteRenderer: {fileID: 2144452713}
   idleFrames:
   - {fileID: 4723107735738678597, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
@@ -1109,36 +1079,87 @@ MonoBehaviour:
   - {fileID: 3278449094680734212, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
   - {fileID: 3384493420599841878, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
   - {fileID: 4723107735738678597, guid: d19d5cdbfbb96ce47a727b3b6dc5ca1a, type: 3}
-  idleFrameRate: 8
-  pulseDurationBeats: 0.15
-  pulseYOffset: 0.04
-  pulseScaleY: 1.03
-  pulseOnEnable: 0
-  logBeatPulse: 0
-  pulseCurve:
-    serializedVersion: 2
-    m_Curve:
-    - serializedVersion: 3
-      time: 0
-      value: 0.6
-      inSlope: 0
-      outSlope: -4
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    - serializedVersion: 3
-      time: 1
-      value: 0
-      inSlope: 0
-      outSlope: 0
-      tangentMode: 0
-      weightedMode: 0
-      inWeight: 0
-      outWeight: 0
-    m_PreInfinity: 2
-    m_PostInfinity: 2
-    m_RotationOrder: 4
+--- !u!212 &685058010
+SpriteRenderer:
+  serializedVersion: 2
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 685058005}
+  m_Enabled: 0
+  m_CastShadows: 0
+  m_ReceiveShadows: 0
+  m_DynamicOccludee: 1
+  m_StaticShadowCaster: 0
+  m_MotionVectors: 1
+  m_LightProbeUsage: 1
+  m_ReflectionProbeUsage: 1
+  m_RayTracingMode: 0
+  m_RayTraceProcedural: 0
+  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTracingAccelStructBuildFlags: 1
+  m_SmallMeshCulling: 1
+  m_ForceMeshLod: -1
+  m_MeshLodSelectionBias: 0
+  m_RenderingLayerMask: 1
+  m_RendererPriority: 0
+  m_Materials:
+  - {fileID: 2100000, guid: a97c105638bdf8b4a8650670310a4cd3, type: 2}
+  m_StaticBatchInfo:
+    firstSubMesh: 0
+    subMeshCount: 0
+  m_StaticBatchRoot: {fileID: 0}
+  m_ProbeAnchor: {fileID: 0}
+  m_LightProbeVolumeOverride: {fileID: 0}
+  m_ScaleInLightmap: 1
+  m_ReceiveGI: 1
+  m_PreserveUVs: 0
+  m_IgnoreNormalsForChartDetection: 0
+  m_ImportantGI: 0
+  m_StitchLightmapSeams: 1
+  m_SelectedEditorRenderState: 0
+  m_MinimumChartSize: 4
+  m_AutoUVMaxDistance: 0.5
+  m_AutoUVMaxAngle: 89
+  m_LightmapParameters: {fileID: 0}
+  m_GlobalIlluminationMeshLod: 0
+  m_SortingLayerID: 0
+  m_SortingLayer: 0
+  m_SortingOrder: 0
+  m_MaskInteraction: 0
+  m_Sprite: {fileID: 0}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
+  m_FlipX: 0
+  m_FlipY: 0
+  m_DrawMode: 0
+  m_Size: {x: 1.28, y: 0.64}
+  m_AdaptiveModeThreshold: 0.5
+  m_SpriteTileMode: 0
+  m_WasSpriteAssigned: 0
+  m_SpriteSortPoint: 0
+--- !u!95 &685058011
+Animator:
+  serializedVersion: 7
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 685058005}
+  m_Enabled: 1
+  m_Avatar: {fileID: 0}
+  m_Controller: {fileID: 9100000, guid: 0ec21d6d0ad7d3340b529e5a2b51b6b1, type: 2}
+  m_CullingMode: 0
+  m_UpdateMode: 0
+  m_ApplyRootMotion: 0
+  m_LinearVelocityBlending: 0
+  m_StabilizeFeet: 0
+  m_AnimatePhysics: 0
+  m_WarningMessage: 
+  m_HasTransformHierarchy: 1
+  m_AllowConstantClipSamplingOptimization: 1
+  m_KeepAnimatorStateOnDisable: 0
+  m_WriteDefaultValuesOnDisable: 0
 --- !u!1001 &704430196
 PrefabInstance:
   m_ObjectHideFlags: 0
