@@ -119,6 +119,44 @@ flowchart TD
   - Buff 系统先预留接口，Demo 初期不作为第一优先级。
   - 第 3 轮实测：`BattleGameManager` 已订阅 `SpellCaster.OnSpellCast` 转发扣血；敌人死亡只打一次 `[Battle] Victory`。失败、暂停、统计未做。`RhythmPrototypeBootstrap.ResetCombat()` 供 MCP 复用。
 
+## 角色动画表现约定
+
+**落地计划（分步实现）**：`.cursor/plans/玩家角色动画落地_4b509c4c.plan.md`。本节为术语与架构真源；冻结基准 [`第4轮魔法完整补完plan.md`](第4轮魔法完整补完plan.md) **不修改**。
+
+### 玩法语义 vs 画面表现
+
+| 层 | 用语 | 含义 |
+|----|------|------|
+| **玩法 / 日志 / 输入** | `Chant`（咏唱）、`Cast`（施法） | 节拍输入类型、缓冲与配方匹配；与 UI 黄/黑留痕、音效 `ChantNormal` / `CastSuccess` 等一致。 |
+| **画面 / 角色** | 骑士 | 玩家扮演持剑骑士；**不**在画面上做「念咒手势」语义。咏唱输入反馈用 **大开大合的挥剑/蓄力类动作**；施法输入反馈用 **斩击/攻击类动作**；失败用 **收招/失败类动作**。 |
+
+具体哪张 Sprite 序列对应哪类动作 **不在本节绑定**；选定后写入动画落地 plan 或本节下的「资源映射」子记录。
+
+### 美术资源
+
+- 目录：[`Assets/Art/Character/`](../Art/Character/)（如 `Idle.png` 等，128×64 网格、PPU 100、Filter Point、Bottom Center Pivot）。
+- 敌人与玩家可共用同一套骑士资源，或敌人后续换皮；**待机拍点颤抖**设计上玩家与敌人同拍同步（见动画落地 plan P1/P6）。
+
+### 架构约束（必守）
+
+- 角色动画 **只读玩法层事件与时间轴**，例如：
+  - `BeatClock`（`BeatIndex` / `BeatFloat` / `SecondsPerBeat`）——待机每整数拍颤抖与白点 **共用同一时钟**，但 **不读取** `DiamondBeatTrackView` 内部状态；
+  - `PlayerRhythmInputController.OnRhythmInput`（合法 `Chant`；`InputRejected` 不播咏唱动画）；
+  - `SpellCaster`：`OnSpellCast`、`OnMatchFailed`、`OnEmptyCastPenalty`、`OnVirtualCastFailed`。
+- 角色动画 **不得** 参与 `RhythmJudge`、`SpellInputBuffer`、`SpellMatcher` 判定，不得反向驱动留痕或伤害。
+- 与 [`RhythmGameplayAudioBridge`](../Scripts/Audio/RhythmGameplayAudioBridge.cs) 类似：桥接订阅，核心玩法脚本保持独立。
+
+### 状态与覆盖（预定方向，实现见落地 plan）
+
+- 默认 **Idle**（循环 Idle 序列 + 每整数拍一次明显上下颤抖，对齐当前拍白点跳顶点）。
+- **新输入覆盖旧动画**：新的 Chant / Cast 成功 / Cast 失败可直接打断上一段角色动画（死亡等更高优先级状态除外）。
+- **Chant 表现（已审核方向）**：与 Chant 留痕同帧开播；播完 **停在结尾 pose**，在队首生命周期（`headBeatFloat + 4` 拍）内 **不回 Idle**；队首留痕清除且未成功施法时，先 **咏唱/施法失败类动画** 再回 Idle。匹配成功由 **CastSuccess** 覆盖 Chant；`MatchFailed` / 空施法 / 虚拟 Cast 失败走 **CastFailed** 与现有失败留痕/CD 规则对齐。
+
+### 组件占位
+
+- 玩家：计划 `PlayerAnimationController`（或等价 `CharacterBeatAnimationController`），尚未接入场景逻辑。
+- 敌人：计划复用 Idle + 拍点脉冲；攻击/受击见第 5 轮及动画落地 plan。
+
 ## 实现顺序
 1. 先完成节拍时钟和输入判定，让没有 UI 的情况下也能在 Console 中输出 `Perfect / Good / Miss`。
 2. 再实现输入序列缓存和魔法匹配，能用咏唱/施法按键释放 1 到 2 个测试魔法。
@@ -583,3 +621,13 @@ flowchart TD
   - G：`Chant 0` 后 `EvaluateLifecycle 4.0` → `VirtualCastFailed` + `CastFailed`。
 - **状态**：completed。
 - **目视**：Game 视图 Play，按 J 听咏唱挥剑，按对 K 听成功施法+魔法，空按或配方错只听失败。若某条太响/太弱只调对应 Cue Volume。
+
+## 玩家角色动画 · P0 文档与术语约定（2026-11-03）
+
+- **本轮目标**：固化「玩法 Chant/Cast vs 骑士挥剑表现」及角色动画订阅边界，不写代码。
+- **改动摘要**：
+  - [`Assets/Docs/项目跟进plan.md`](项目跟进plan.md)：新增「角色动画表现约定」。
+  - [`.cursor/plans/beatspell_原型系统_7b571e70.plan.md`](../.cursor/plans/beatspell_原型系统_7b571e70.plan.md)：玩法规则下增加交叉引用。
+- **依据 plan**：`.cursor/plans/玩家角色动画落地_4b509c4c.plan.md` 优先级 P0。
+- **MCP 验收**：文档-only，无 Play 用例。
+- **状态**：P0 **completed**；下一小步：落地 plan P1（玩家 Idle + 每整数拍颤抖）。

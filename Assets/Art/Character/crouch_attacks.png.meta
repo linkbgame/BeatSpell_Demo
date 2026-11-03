@@ -23,6 +23,9 @@ TextureImporter:
   - first:
       213: -5184701433095755370
     second: crouch_attacks_6
+  - first:
+      213: -1796544986533757168
+    second: crouch_attacks_7
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -55,7 +58,7 @@ TextureImporter:
   maxTextureSize: 2048
   textureSettings:
     serializedVersion: 2
-    filterMode: 1
+    filterMode: 0
     aniso: 1
     mipBias: 0
     wrapU: 1
@@ -66,7 +69,7 @@ TextureImporter:
   compressionQuality: 50
   spriteMode: 2
   spriteExtrude: 1
-  spriteMeshType: 1
+  spriteMeshType: 0
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
   spritePixelsToUnits: 100
@@ -93,7 +96,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -121,12 +124,12 @@ TextureImporter:
       name: crouch_attacks_0
       rect:
         serializedVersion: 2
-        x: 49
-        y: 191
-        width: 49
-        height: 41
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 192
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -143,12 +146,12 @@ TextureImporter:
       name: crouch_attacks_1
       rect:
         serializedVersion: 2
-        x: 171
-        y: 191
-        width: 46
-        height: 42
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 128
+        y: 192
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -165,12 +168,12 @@ TextureImporter:
       name: crouch_attacks_2
       rect:
         serializedVersion: 2
-        x: 42
-        y: 127
-        width: 34
-        height: 42
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 128
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -187,12 +190,12 @@ TextureImporter:
       name: crouch_attacks_3
       rect:
         serializedVersion: 2
-        x: 172
-        y: 127
-        width: 32
-        height: 42
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 128
+        y: 128
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -209,12 +212,12 @@ TextureImporter:
       name: crouch_attacks_4
       rect:
         serializedVersion: 2
-        x: 37
-        y: 63
-        width: 61
-        height: 39
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 0
+        y: 64
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -231,12 +234,12 @@ TextureImporter:
       name: crouch_attacks_5
       rect:
         serializedVersion: 2
-        x: 164
-        y: 63
-        width: 53
-        height: 39
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        x: 128
+        y: 64
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -253,12 +256,12 @@ TextureImporter:
       name: crouch_attacks_6
       rect:
         serializedVersion: 2
-        x: 36
+        x: 0
         y: 0
-        width: 43
-        height: 39
-      alignment: 0
-      pivot: {x: 0, y: 0}
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -267,6 +270,28 @@ TextureImporter:
       bones: []
       spriteID: 6996edd248d3c08b0800000000000000
       internalID: -5184701433095755370
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: crouch_attacks_7
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 0
+        width: 128
+        height: 64
+      alignment: 7
+      pivot: {x: 0.5, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 01f75ae6ad36117e0800000000000000
+      internalID: -1796544986533757168
       vertices: []
       indices: 
       edges: []
@@ -292,6 +317,7 @@ TextureImporter:
       crouch_attacks_4: -9115036747040266995
       crouch_attacks_5: -7784815003266371253
       crouch_attacks_6: -5184701433095755370
+      crouch_attacks_7: -1796544986533757168
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
