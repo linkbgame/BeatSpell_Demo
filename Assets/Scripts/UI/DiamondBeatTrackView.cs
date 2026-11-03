@@ -102,6 +102,11 @@ namespace BeatSpell.UI
 
         private void Start()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             CacheBeatClock();
             lastVertexIndex = -1;
             RefreshBeatVertexIfRunning();
@@ -110,6 +115,12 @@ namespace BeatSpell.UI
         private void OnEnable()
         {
             CacheBeatClock();
+            if (!Application.isPlaying)
+            {
+                ResetBeatPulseVisuals();
+                return;
+            }
+
             if (beatClock != null && beatClock.IsRunning)
             {
                 lastVertexIndex = -1;
@@ -117,8 +128,18 @@ namespace BeatSpell.UI
             }
         }
 
+        private void OnDisable()
+        {
+            ResetBeatPulseVisuals();
+        }
+
         private void Update()
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             CacheBeatClock();
             if (beatClock != null && beatClock.IsRunning)
             {
@@ -131,6 +152,11 @@ namespace BeatSpell.UI
 
         public void SetBeatVertex(int vertexIndex)
         {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
             int next = BeatTimingInfo.PositiveMod(vertexIndex, 4);
             if (next == lastVertexIndex)
             {

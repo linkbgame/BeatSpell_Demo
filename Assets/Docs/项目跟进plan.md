@@ -111,6 +111,7 @@ flowchart TD
   - `HealthBarView`：玩家和敌人血量显示。
   - `HintTextView`：显示操作提示和判定结果。
   - 第 4 轮实测（重做）：当前拍只读 `BeatClock.VertexIndex`，四顶点整拍跳动。输入留痕用 `beatFloat` 在菱形边上插值，不吸附 4/8 点。`MarkerRoot` 动态生成黄/黑点。匹配成功 `Clear(notify:false)` 保留本序列痕迹；`MatchFailed` / `ResetCombat` 清空。Miss 打断序列后仍在本次按键轨迹位置留一点。血条与侧栏技能菱形未做。
+  - **Editor BeatPulse 残留修复（2026-11-03）**：`DiamondBeatTrackView` 增加 `OnDisable` 复位、`Application.isPlaying` 守卫；Edit 下 `OnEnable` 清 BeatPulse。Play/MCP 曾把白点 active 写进场景导致编辑态误亮。MCP **5/5 PASS**；清理前场景曾 **1** 个 BeatPulse 误 active。
   - 第 4 轮补完：Marker 从首个留痕起算一圈后 `ClearMarkers`；新一轮咏唱会先清掉上一轮残留。过期前缀 `[Track] MarkersCleared`。
   - 第 4 轮小步 5：队首清理改由 `BeatFloat >= headBeatFloat + 4` 判断；`Perfect` 队列 Marker 动态生成放射线，`Good/Weak` 只有底图。白点仍只读 `VertexIndex`。
 - 全局系统
